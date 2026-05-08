@@ -1,0 +1,14 @@
+auth:
+  postgresPassword: "devpassword123"
+  database: "cmsdb"
+
+primary:
+  persistence:
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

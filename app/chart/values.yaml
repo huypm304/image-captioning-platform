@@ -1,0 +1,31 @@
+replicaCount: 1
+
+image:
+  repository: ""
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+serviceAccount:
+  name: demo-app
+  roleArn: ""
+
+models:
+  s3Bucket: ""
+  s3Prefix: "patched_models/"
+  mountPath: "/models"
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 1500m
+    memory: 3Gi
+
+env:
+  AWS_REGION: ap-southeast-1

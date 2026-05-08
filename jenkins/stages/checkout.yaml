@@ -1,0 +1,5 @@
+name: Checkout
+agent: laptop
+steps:
+  - "echo Branch=${GIT_BRANCH:-main}"
+  - "git rev-parse HEAD"
