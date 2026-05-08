@@ -55,7 +55,7 @@ pipeline {
 
             withCredentials([[
               $class: 'AmazonWebServicesCredentialsBinding',
-              credentialsId: 'id-creds-aws' 
+              credentialsId: 'aws-creds-id' 
             ]]) {
               order.each { sName ->
                 def cfg = readYaml file: "jenkins/stages/${sName}.yaml"
