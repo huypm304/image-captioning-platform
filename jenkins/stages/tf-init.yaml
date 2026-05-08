@@ -4,7 +4,6 @@ steps:
   - |
     bash -lc '
     set -euo pipefail
-    cd terraform
     REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
     export AWS_DEFAULT_REGION="${REGION}"
     ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
