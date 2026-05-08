@@ -17,7 +17,8 @@ steps:
     CERT_ARN=$(terraform output -raw acm_certificate_arn);
     cd ..;
     
-    kubectl apply -f k8s/namespaces.yaml;
+    kubectl version --short || true;
+    kubectl apply --request-timeout=60s -f k8s/namespaces.yaml;
 
     helm upgrade --install demo-app ./app/chart \
       --namespace default \
@@ -31,6 +32,6 @@ steps:
       --wait --timeout 15m;
     
     CERT_SUB="s|\${ACM_CERTIFICATE_ARN}|${CERT_ARN}|g";
-    kubectl apply -f <(sed "${CERT_SUB}" k8s/grafana-ingress.yaml)'
+    sed "${CERT_SUB}" k8s/grafana-ingress.yaml | kubectl apply --request-timeout=60s -f -'
   - "kubectl rollout status deployment/demo-app-backend -n default --timeout=15m"
   - "kubectl rollout status deployment/demo-app-frontend -n default --timeout=5m"
