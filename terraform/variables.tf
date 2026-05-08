@@ -7,11 +7,23 @@ variable "region" {
 variable "cluster_name" {
   description = "EKS cluster name"
   type        = string
-  default     = "cms-devops-dev-eks"
+  default     = "image-caption-dev-eks"
 }
 
 variable "cluster_version" {
   description = "Kubernetes version"
   type        = string
-  default     = "1.29"
+  default     = "1.30"
+}
+
+variable "domain_name" {
+  description = "Root domain managed in Route53"
+  type        = string
+  default     = "minhhuy.net"
+}
+
+variable "jenkins_vps_ip" {
+  description = "Public IP of the Jenkins VPS (leave empty to skip DNS record)"
+  type        = string
+  default     = ""
 }

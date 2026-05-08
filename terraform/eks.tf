@@ -20,11 +20,12 @@ module "eks" {
       min_size       = 2
       max_size       = 3
       desired_size   = 2
+      ami_type = "AL2_x86_64"
     }
   }
 
   tags = {
-    Project     = "cms-devops"
+    Project     = "image-caption"
     Environment = "dev"
   }
 }

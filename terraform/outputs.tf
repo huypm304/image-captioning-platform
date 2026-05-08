@@ -58,3 +58,18 @@ output "demo_app_role_arn" {
   description = "IAM role ARN for IRSA (ServiceAccount default/demo-app)"
   value       = aws_iam_role.demo_app.arn
 }
+
+output "frontend_ecr_repository_url" {
+  description = "ECR image URI prefix for the frontend"
+  value       = aws_ecr_repository.frontend.repository_url
+}
+
+output "route53_nameservers" {
+  description = "NS records to configure at Namecheap for minhhuy.net"
+  value       = aws_route53_zone.main.name_servers
+}
+
+output "acm_certificate_arn" {
+  description = "ACM wildcard certificate ARN for ALB HTTPS"
+  value       = aws_acm_certificate.wildcard.arn
+}

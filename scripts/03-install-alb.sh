@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CLUSTER_NAME="${1:-cms-devops-dev-eks}"
+CLUSTER_NAME="${1:-image-caption-dev-eks}"
 REGION="${2:-ap-southeast-1}"
 POLICY_NAME="AWSLoadBalancerControllerIAMPolicy"
 

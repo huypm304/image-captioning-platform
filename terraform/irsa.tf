@@ -28,11 +28,11 @@ data "aws_iam_policy_document" "demo_app_assume" {
 }
 
 resource "aws_iam_role" "demo_app" {
-  name               = "cms-devops-dev-demo-app"
+  name               = "image-caption-dev-demo-app"
   assume_role_policy = data.aws_iam_policy_document.demo_app_assume.json
 
   tags = {
-    Project     = "cms-devops"
+    Project     = "image-caption"
     Environment = "dev"
   }
 }
@@ -58,7 +58,7 @@ data "aws_iam_policy_document" "demo_app_s3" {
 }
 
 resource "aws_iam_role_policy" "demo_app_s3" {
-  name   = "cms-devops-dev-demo-app-s3-models"
+  name   = "image-caption-dev-demo-app-s3-models"
   role   = aws_iam_role.demo_app.id
   policy = data.aws_iam_policy_document.demo_app_s3.json
 }

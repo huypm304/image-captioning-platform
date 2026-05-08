@@ -1,14 +1,36 @@
-replicaCount: 1
+backend:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+    targetPort: 8000
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 1500m
+      memory: 3Gi
 
-image:
-  repository: ""
-  tag: latest
-  pullPolicy: IfNotPresent
-
-service:
-  type: ClusterIP
-  port: 80
-  targetPort: 8000
+frontend:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+    targetPort: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
 
 serviceAccount:
   name: demo-app
@@ -19,13 +41,12 @@ models:
   s3Prefix: "patched_models/"
   mountPath: "/models"
 
-resources:
-  requests:
-    cpu: 500m
-    memory: 2Gi
-  limits:
-    cpu: 1500m
-    memory: 3Gi
+ingress:
+  enabled: true
+  certificateArn: ""
+  hosts:
+    app: app.minhhuy.net
+    api: api.minhhuy.net
 
 env:
   AWS_REGION: ap-southeast-1

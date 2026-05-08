@@ -18,10 +18,10 @@ if [ ! -f backend.hcl ]; then
   echo "Generating backend.hcl from current AWS account (bucket must exist — run scripts/00-bootstrap-tf-backend.sh first)..."
   ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
   printf '%s\n' \
-    "bucket         = \"cms-devops-dev-tfstate-${ACCOUNT}\"" \
-    'key            = "cms-devops/dev/terraform.tfstate"' \
+    "bucket         = \"image-caption-dev-tfstate-${ACCOUNT}\"" \
+    'key            = "image-caption/dev/terraform.tfstate"' \
     "region         = \"${REGION}\"" \
-    'dynamodb_table = "cms-devops-dev-tflock"' \
+    'dynamodb_table = "image-caption-dev-tflock"' \
     'encrypt        = true' \
     > backend.hcl
 fi

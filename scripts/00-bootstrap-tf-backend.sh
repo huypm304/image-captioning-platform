@@ -10,8 +10,8 @@ REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
 export AWS_DEFAULT_REGION="${REGION}"
 
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-BUCKET="cms-devops-dev-tfstate-${ACCOUNT_ID}"
-TABLE="cms-devops-dev-tflock"
+BUCKET="image-caption-dev-tfstate-${ACCOUNT_ID}"
+TABLE="image-caption-dev-tflock"
 
 echo "=== Bootstrap Terraform remote backend ==="
 echo "Region:      ${REGION}"
@@ -52,7 +52,7 @@ fi
 # Write backend.hcl for local terraform init (gitignored)
 cat > "${TF_DIR}/backend.hcl" <<EOF
 bucket         = "${BUCKET}"
-key            = "cms-devops/dev/terraform.tfstate"
+key            = "image-caption/dev/terraform.tfstate"
 region         = "${REGION}"
 dynamodb_table = "${TABLE}"
 encrypt        = true

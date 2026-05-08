@@ -1,11 +1,11 @@
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "models" {
-  bucket        = "cms-devops-dev-models-${data.aws_caller_identity.current.account_id}"
+  bucket        = "image-caption-dev-models-${data.aws_caller_identity.current.account_id}"
   force_destroy = true
 
   tags = {
-    Project     = "cms-devops"
+    Project     = "image-caption"
     Environment = "dev"
   }
 }

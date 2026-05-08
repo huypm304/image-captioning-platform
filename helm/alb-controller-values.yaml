@@ -1,4 +1,4 @@
-clusterName: cms-devops-dev-eks
+clusterName: image-caption-dev-eks
 
 serviceAccount:
   create: false

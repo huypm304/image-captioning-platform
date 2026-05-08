@@ -3,18 +3,18 @@ kind: Namespace
 metadata:
   name: monitoring
   labels:
-    project: cms-devops
+    project: image-caption
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
   name: logging
   labels:
-    project: cms-devops
+    project: image-caption
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
   name: database
   labels:
-    project: cms-devops
+    project: image-caption

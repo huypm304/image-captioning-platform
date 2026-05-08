@@ -7,7 +7,7 @@ REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
 export AWS_DEFAULT_REGION="${REGION}"
 
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-BUCKET="cms-devops-dev-models-${ACCOUNT}"
+BUCKET="image-caption-dev-models-${ACCOUNT}"
 LOCAL_DIR="${SCRIPT_DIR}/../image-captioning/patched_models"
 
 if [ ! -d "${LOCAL_DIR}" ]; then

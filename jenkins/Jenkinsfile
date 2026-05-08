@@ -17,8 +17,9 @@ pipeline {
   environment {
     AWS_REGION         = 'ap-southeast-1'
     AWS_DEFAULT_REGION = 'ap-southeast-1'
-    CLUSTER_NAME       = 'cms-devops-dev-eks'
-    ECR_REPO           = 'cms-devops-dev-app'
+    CLUSTER_NAME       = 'image-caption-dev-eks'
+    ECR_REPO_BE        = 'image-caption-dev-app'
+    ECR_REPO_FE        = 'image-caption-dev-frontend'
     // Jenkins credential type "Secret text": registry host only, e.g. 123456789012.dkr.ecr.ap-southeast-1.amazonaws.com
     ECR_REGISTRY       = credentials('ecr-registry-url')
   }
