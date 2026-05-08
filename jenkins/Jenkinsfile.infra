@@ -1,16 +1,15 @@
 pipeline {
-  agent none
+  agent none 
 
   parameters {
     string(
       name: 'AGENT_LABEL',
-      defaultValue: 'Laptop',
-      description: 'Jenkins agent label to run all terraform stages on (e.g. laptop)'
+      defaultValue: 'laptop', 
+      description: 'Jenkins agent label to run all terraform stages on'
     )
     choice(
       name: 'STAGE',
       choices: ['plan', 'apply', 'plan-then-apply', 'destroy'],
-      description: 'plan = init+plan (use with pollSCM). apply = init+apply. plan-then-apply = same workspace. destroy = teardown.'
     )
   }
 
@@ -30,7 +29,7 @@ pipeline {
   }
 
   stages {
-    stage('Run') {
+    stage('Terraform Infrastructure Management') {
       steps {
         script {
           def order = []
@@ -51,18 +50,27 @@ pipeline {
               order = ['tf-init', 'tf-plan']
           }
 
-          withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-creds-id'
-          ]]) {
-            order.each { sName ->
-              def cfg = readYaml file: "jenkins/stages/${sName}.yaml"
-              stage(cfg.name) {
-                node(params.AGENT_LABEL) {
-                  checkout scm
-                  cfg.steps.each { cmd -> sh cmd }
+          node(params.AGENT_LABEL) {
+            checkout scm
+
+            withCredentials([[
+              $class: 'AmazonWebServicesCredentialsBinding',
+              credentialsId: 'id-creds-aws' 
+            ]]) {
+              
+              order.each { sName ->
+                def cfg = readYaml file: "jenkins/stages/${sName}.yaml"
+                
+                stage(cfg.name) {
+                  echo "--- Starting stage: ${cfg.name} ---"
+                  
+                  cfg.steps.each { cmd -> 
+                    sh "cd terraform && ${cmd}" 
+                  }
+
                   if (cfg.containsKey('archive') && cfg.archive) {
-                    archiveArtifacts artifacts: cfg.archive, allowEmptyArchive: true
+                    echo "Archiving artifact: ${cfg.archive}"
+                    archiveArtifacts artifacts: "terraform/${cfg.archive}", allowEmptyArchive: true
                   }
                 }
               }
