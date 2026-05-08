@@ -15,5 +15,5 @@ steps:
       "dynamodb_table = \"image-caption-dev-tflock\"" \
       "encrypt        = true" > backend.hcl
       
-    terraform init -input=false -no-color -backend-config=backend.hcl
+    terraform init -input=false -no-color -reconfigure -backend-config=backend.hcl
     '
