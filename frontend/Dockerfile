@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 FROM --platform=linux/amd64 nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
