@@ -17,6 +17,8 @@ steps:
     CERT_ARN=$(terraform output -raw acm_certificate_arn);
     cd ..;
     
+    kubectl apply -f k8s/namespaces.yaml;
+
     helm upgrade --install demo-app ./app/chart \
       --namespace default \
       --set backend.image.repository=${ECR_REGISTRY}/${ECR_REPO_BE} \
