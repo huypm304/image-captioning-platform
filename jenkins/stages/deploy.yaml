@@ -7,30 +7,34 @@ steps:
     REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}";
     export AWS_DEFAULT_REGION="${REGION}";
     ACCOUNT=$(aws sts get-caller-identity --query Account --output text);
-    printf "%s\n"
-      "bucket         = \"image-caption-dev-tfstate-${ACCOUNT}\""
-      "key            = \"image-caption/dev/terraform.tfstate\""
-      "region         = \"${REGION}\""
-      "dynamodb_table = \"image-caption-dev-tflock\""
-      "encrypt        = true"
-      > terraform/backend.hcl;
+    
+    cat <<EOF > terraform/backend.hcl
+    bucket         = "image-caption-dev-tfstate-${ACCOUNT}"
+    key            = "image-caption/dev/terraform.tfstate"
+    region         = "${REGION}"
+    dynamodb_table = "image-caption-dev-tflock"
+    encrypt        = true
+    EOF
+
     cd terraform;
     terraform init -input=false -no-color -backend-config=backend.hcl >/dev/null;
     BUCKET=$(terraform output -raw models_bucket);
     ROLE_ARN=$(terraform output -raw demo_app_role_arn);
     CERT_ARN=$(terraform output -raw acm_certificate_arn);
     cd ..;
-    helm upgrade --install demo-app ./app/chart
-      --namespace default
-      --set backend.image.repository=${ECR_REGISTRY}/${ECR_REPO_BE}
-      --set backend.image.tag=${BUILD_NUMBER}
-      --set frontend.image.repository=${ECR_REGISTRY}/${ECR_REPO_FE}
-      --set frontend.image.tag=${BUILD_NUMBER}
-      --set models.s3Bucket=${BUCKET}
-      --set serviceAccount.roleArn=${ROLE_ARN}
-      --set ingress.certificateArn=${CERT_ARN}
+    
+    helm upgrade --install demo-app ./app/chart \
+      --namespace default \
+      --set backend.image.repository=${ECR_REGISTRY}/${ECR_REPO_BE} \
+      --set backend.image.tag=${BUILD_NUMBER} \
+      --set frontend.image.repository=${ECR_REGISTRY}/${ECR_REPO_FE} \
+      --set frontend.image.tag=${BUILD_NUMBER} \
+      --set models.s3Bucket=${BUCKET} \
+      --set serviceAccount.roleArn=${ROLE_ARN} \
+      --set ingress.certificateArn=${CERT_ARN} \
       --wait --timeout 15m;
-    CERT_SUB="s/\\\${ACM_CERTIFICATE_ARN}/${CERT_ARN}/g";
+    
+    CERT_SUB="s|\${ACM_CERTIFICATE_ARN}|${CERT_ARN}|g";
     kubectl apply -f <(sed "${CERT_SUB}" k8s/grafana-ingress.yaml)'
   - "kubectl rollout status deployment/demo-app-backend -n default --timeout=15m"
   - "kubectl rollout status deployment/demo-app-frontend -n default --timeout=5m"
