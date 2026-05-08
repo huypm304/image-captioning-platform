@@ -1,7 +1,12 @@
 pipeline {
-  agent { label 'laptop' }
+  agent none
 
   parameters {
+    string(
+      name: 'AGENT_LABEL',
+      defaultValue: 'Laptop',
+      description: 'Jenkins agent label to run all terraform stages on (e.g. laptop)'
+    )
     choice(
       name: 'STAGE',
       choices: ['plan', 'apply', 'plan-then-apply', 'destroy'],
@@ -53,7 +58,7 @@ pipeline {
             order.each { sName ->
               def cfg = readYaml file: "jenkins/stages/${sName}.yaml"
               stage(cfg.name) {
-                node(cfg.agent) {
+                node(params.AGENT_LABEL) {
                   checkout scm
                   cfg.steps.each { cmd -> sh cmd }
                   if (cfg.containsKey('archive') && cfg.archive) {

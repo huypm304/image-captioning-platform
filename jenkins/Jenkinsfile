@@ -1,7 +1,12 @@
 pipeline {
-  agent { label 'laptop' }
+  agent none
 
   parameters {
+    string(
+      name: 'AGENT_LABEL',
+      defaultValue: 'laptop',
+      description: 'Jenkins agent label to run all stages on (e.g. laptop)'
+    )
     choice(
       name: 'STAGE',
       choices: ['all', 'checkout', 'build', 'test', 'deploy'],
@@ -32,7 +37,7 @@ pipeline {
             toRun.each { sName ->
               def cfg = readYaml file: "jenkins/stages/${sName}.yaml"
               stage(cfg.name) {
-                node(cfg.agent) {
+                node(params.AGENT_LABEL) {
                   checkout scm
                   cfg.steps.each { cmd -> sh cmd }
                 }
