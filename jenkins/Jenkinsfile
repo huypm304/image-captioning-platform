@@ -35,15 +35,16 @@ pipeline {
             $class: 'AmazonWebServicesCredentialsBinding',
             credentialsId: 'aws-creds-id'
           ]]) {
-            toRun.each { sName ->
-              def cfg = readYaml file: "jenkins/stages/${sName}.yaml"
-              stage(cfg.name) {
-                node(params.AGENT_LABEL) {
-                  checkout scm
+            node(params.AGENT_LABEL) {
+              checkout scm
+
+              toRun.each { sName ->
+                def cfg = readYaml file: "jenkins/stages/${sName}.yaml"
+                stage(cfg.name) {
                   cfg.steps.each { cmd -> sh cmd }
                 }
               }
-            }
+            }            
           }
         }
       }
