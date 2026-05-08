@@ -1,13 +1,5 @@
 name: TF Apply
 agent: laptop
 steps:
-  - |
-    set -euo pipefail
-    cd terraform
-    if [ -f tfplan ]; then
-      terraform apply -no-color -input=false tfplan
-    else
-      echo "WARNING: no tfplan in workspace; applying without saved plan (not ideal for prod)."
-      terraform apply -no-color -auto-approve -input=false
-    fi
+  - "bash -lc 'set -euo pipefail; cd terraform; if [ -f tfplan ]; then terraform apply -no-color -input=false tfplan; else echo \"WARNING: no tfplan in workspace; applying without saved plan (not ideal for prod).\"; terraform apply -no-color -auto-approve -input=false; fi'"
   - "cd terraform && terraform output -no-color"
