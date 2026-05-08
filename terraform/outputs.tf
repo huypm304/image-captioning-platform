@@ -65,7 +65,7 @@ output "frontend_ecr_repository_url" {
 }
 
 output "route53_nameservers" {
-  description = "NS records to configure at Namecheap for minhhuy.net"
+  description = "NS records to configure at Namecheap for minhhuy.me"
   value       = aws_route53_zone.main.name_servers
 }
 

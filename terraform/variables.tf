@@ -19,7 +19,7 @@ variable "cluster_version" {
 variable "domain_name" {
   description = "Root domain managed in Route53"
   type        = string
-  default     = "minhhuy.net"
+  default     = "minhhuy.me"
 }
 
 variable "jenkins_vps_ip" {

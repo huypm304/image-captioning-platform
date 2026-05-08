@@ -45,8 +45,8 @@ ingress:
   enabled: true
   certificateArn: ""
   hosts:
-    app: app.minhhuy.net
-    api: api.minhhuy.net
+    app: app.minhhuy.me
+    api: api.minhhuy.me
 
 env:
   AWS_REGION: ap-southeast-1

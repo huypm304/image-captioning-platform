@@ -13,7 +13,7 @@ metadata:
     alb.ingress.kubernetes.io/ssl-redirect: "443"
 spec:
   rules:
-    - host: grafana.minhhuy.net
+    - host: grafana.minhhuy.me
       http:
         paths:
           - path: /
