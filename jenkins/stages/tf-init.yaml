@@ -1,5 +1,4 @@
 name: TF Init
 agent: laptop
 steps:
-  - "bash -lc 'set -euo pipefail; REGION=\"${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}\"; export AWS_DEFAULT_REGION=\"${REGION}\"; ACCOUNT=$(aws sts get-caller-identity --query Account --output text); OUT=\"terraform/backend.hcl\"; if [ ! -d terraform ]; then OUT=\"backend.hcl\"; fi; mkdir -p \"$(dirname \"${OUT}\")\"; printf \"%s\\n\" \"bucket         = \\\"cms-devops-dev-tfstate-${ACCOUNT}\\\"\" \"key            = \\\"cms-devops/dev/terraform.tfstate\\\"\" \"region         = \\\"${REGION}\\\"\" \"dynamodb_table = \\\"cms-devops-dev-tflock\\\"\" \"encrypt        = true\" > \"${OUT}\"'"
-  - "cd terraform && terraform init -input=false -no-color -backend-config=backend.hcl"
+  - "bash -lc 'set -euo pipefail; cd terraform; REGION=\"${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}\"; export AWS_DEFAULT_REGION=\"${REGION}\"; ACCOUNT=$(aws sts get-caller-identity --query Account --output text); printf \"%s\\n\" \"bucket         = \\\"cms-devops-dev-tfstate-${ACCOUNT}\\\"\" \"key            = \\\"cms-devops/dev/terraform.tfstate\\\"\" \"region         = \\\"${REGION}\\\"\" \"dynamodb_table = \\\"cms-devops-dev-tflock\\\"\" \"encrypt        = true\" > backend.hcl; terraform init -input=false -no-color -backend-config=backend.hcl'"
