@@ -1,6 +1,19 @@
 import { useCallback, useRef, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+function getDefaultApiBase(): string {
+  try {
+    const { protocol, hostname, port } = window.location;
+    // Local dev: use vite proxy (relative URL)
+    if (hostname === "localhost" || hostname === "127.0.0.1") return "";
+    const apiHost = hostname.startsWith("app.") ? hostname.replace(/^app\./, "api.") : `api.${hostname}`;
+    const apiPort = port ? `:${port}` : "";
+    return `${protocol}//${apiHost}${apiPort}`;
+  } catch {
+    return "";
+  }
+}
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? getDefaultApiBase();
 
 interface PredictResponse {
   caption: string;

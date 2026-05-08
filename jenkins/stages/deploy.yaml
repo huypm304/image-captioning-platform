@@ -17,7 +17,7 @@ steps:
     CERT_ARN=$(terraform output -raw acm_certificate_arn);
     cd ..;
     
-    kubectl version --short || true;
+    kubectl version || true;
     kubectl apply --request-timeout=60s -f k8s/namespaces.yaml;
 
     helm upgrade --install demo-app ./app/chart \
