@@ -62,7 +62,7 @@ async def predict(
 
     logger.info(
         "inference_start",
-        extra={"filename": file.filename, "strategy": strategy, "beam_width": beam_width},
+        extra={"upload_filename": file.filename, "strategy": strategy, "beam_width": beam_width},
     )
 
     try:
