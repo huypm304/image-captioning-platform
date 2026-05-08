@@ -8,7 +8,6 @@ steps:
     export AWS_DEFAULT_REGION="${REGION}";
     ACCOUNT=$(aws sts get-caller-identity --query Account --output text);
     
-    # Viết backend.hcl bằng printf trên 1 dòng để tránh lỗi EOF
     printf "bucket = \"image-caption-dev-tfstate-%s\"\nkey = \"image-caption/dev/terraform.tfstate\"\nregion = \"%s\"\ndynamodb_table = \"image-caption-dev-tflock\"\nencrypt = true\n" "${ACCOUNT}" "${REGION}" > terraform/backend.hcl;
 
     cd terraform;
