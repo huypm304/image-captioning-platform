@@ -4,12 +4,12 @@ pipeline {
   parameters {
     string(
       name: 'AGENT_LABEL',
-      defaultValue: 'Laptop', 
+      defaultValue: 'laptop', 
       description: 'Jenkins agent label to run all terraform stages on'
     )
     choice(
       name: 'STAGE',
-      choices: ['plan', 'apply', 'plan-then-apply', 'destroy'],
+      choices: ['plan', 'apply', 'plan-then-apply', 'destroy']
     )
   }
 
@@ -55,24 +55,24 @@ pipeline {
 
             withCredentials([[
               $class: 'AmazonWebServicesCredentialsBinding',
-              credentialsId: 'aws-creds-id' 
+              credentialsId: 'id-creds-aws' 
             ]]) {
-              
               order.each { sName ->
                 def cfg = readYaml file: "jenkins/stages/${sName}.yaml"
                 
                 stage(cfg.name) {
-                  echo "--- Starting stage: ${cfg.name} ---"
-                  
                   dir('terraform') { 
-                      cfg.steps.each { cmd -> 
-                        sh "${cmd}" 
-                      }
+                    cfg.steps.each { cmd -> 
+                      sh "${cmd}" 
                     }
+                  }
+                  
+                  if (cfg.containsKey('archive') && cfg.archive) {
+                    archiveArtifacts artifacts: "terraform/${cfg.archive}", allowEmptyArchive: true
                   }
                 }
               }
-            } 
+            }
           }
         }
       }
