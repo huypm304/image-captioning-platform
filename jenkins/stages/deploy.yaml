@@ -3,18 +3,13 @@ agent: laptop
 steps:
   - "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"
   - >-
-    bash -lc 'set -euo pipefail;
+    bash -c 'set -euo pipefail;
     REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}";
     export AWS_DEFAULT_REGION="${REGION}";
     ACCOUNT=$(aws sts get-caller-identity --query Account --output text);
     
-    cat <<EOF > terraform/backend.hcl
-    bucket         = "image-caption-dev-tfstate-${ACCOUNT}"
-    key            = "image-caption/dev/terraform.tfstate"
-    region         = "${REGION}"
-    dynamodb_table = "image-caption-dev-tflock"
-    encrypt        = true
-    EOF
+    # Viết backend.hcl bằng printf trên 1 dòng để tránh lỗi EOF
+    printf "bucket = \"image-caption-dev-tfstate-%s\"\nkey = \"image-caption/dev/terraform.tfstate\"\nregion = \"%s\"\ndynamodb_table = \"image-caption-dev-tflock\"\nencrypt = true\n" "${ACCOUNT}" "${REGION}" > terraform/backend.hcl;
 
     cd terraform;
     terraform init -input=false -no-color -backend-config=backend.hcl >/dev/null;
