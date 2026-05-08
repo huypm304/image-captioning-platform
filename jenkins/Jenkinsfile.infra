@@ -64,17 +64,15 @@ pipeline {
                 stage(cfg.name) {
                   echo "--- Starting stage: ${cfg.name} ---"
                   
-                  cfg.steps.each { cmd -> 
-                    sh "cd terraform && ${cmd}" 
-                  }
-
-                  if (cfg.containsKey('archive') && cfg.archive) {
-                    echo "Archiving artifact: ${cfg.archive}"
-                    archiveArtifacts artifacts: "terraform/${cfg.archive}", allowEmptyArchive: true
+                  dir('terraform') { 
+                      cfg.steps.each { cmd -> 
+                        sh "${cmd}" 
+                      }
+                    }
                   }
                 }
               }
-            }
+            } 
           }
         }
       }
