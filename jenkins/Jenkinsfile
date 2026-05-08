@@ -20,8 +20,6 @@ pipeline {
     CLUSTER_NAME       = 'image-caption-dev-eks'
     ECR_REPO_BE        = 'image-caption-dev-app'
     ECR_REPO_FE        = 'image-caption-dev-frontend'
-    // Jenkins credential type "Secret text": registry host only, e.g. 123456789012.dkr.ecr.ap-southeast-1.amazonaws.com
-    ECR_REGISTRY       = credentials('ecr-registry-url')
   }
 
   stages {
@@ -37,6 +35,14 @@ pipeline {
           ]]) {
             node(params.AGENT_LABEL) {
               checkout scm
+              script {
+                def accountId = sh(
+                  returnStdout: true,
+                  script: 'aws sts get-caller-identity --query Account --output text'
+                ).trim()
+                env.ECR_REGISTRY = "${accountId}.dkr.ecr.${env.AWS_REGION}.amazonaws.com"
+                echo "Using ECR_REGISTRY=${env.ECR_REGISTRY}"
+              }
 
               toRun.each { sName ->
                 def cfg = readYaml file: "jenkins/stages/${sName}.yaml"

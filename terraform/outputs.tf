@@ -45,7 +45,7 @@ output "ecr_repository_url" {
 }
 
 output "ecr_registry_host" {
-  description = "ECR registry hostname only (for docker login; use as Jenkins secret ecr-registry-url)"
+  description = "ECR registry hostname only (useful for docker login)"
   value       = split("/", aws_ecr_repository.app.repository_url)[0]
 }
 
