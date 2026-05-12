@@ -13,7 +13,10 @@ metadata:
     alb.ingress.kubernetes.io/certificate-arn: "__ACM_CERTIFICATE_ARN__"
     alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
 spec:
+  ingressClassName: alb
   rules:
     - host: argocd.minhhuy.me
       http:

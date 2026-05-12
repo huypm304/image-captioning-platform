@@ -18,3 +18,8 @@ spec:
     automated:
       prune: false
       selfHeal: true
+  ignoreDifferences:
+    - group: networking.k8s.io
+      kind: Ingress
+      jqPathExpressions:
+        - .metadata.annotations["alb.ingress.kubernetes.io/certificate-arn"]

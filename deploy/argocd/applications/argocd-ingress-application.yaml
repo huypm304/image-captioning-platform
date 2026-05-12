@@ -17,3 +17,9 @@ spec:
     automated:
       prune: false
       selfHeal: true
+  # Bootstrap patches ACM from Terraform; Git may keep a placeholder. Do not revert that annotation.
+  ignoreDifferences:
+    - group: networking.k8s.io
+      kind: Ingress
+      jqPathExpressions:
+        - .metadata.annotations["alb.ingress.kubernetes.io/certificate-arn"]
