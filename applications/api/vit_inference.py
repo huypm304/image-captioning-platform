@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pickle
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -19,7 +20,8 @@ from transformers import AutoImageProcessor, ViTModel
 # Paths (override via environment variables)
 # =============================================================================
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_ASSETS_DIR = os.path.join(HERE, "patched_models")
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_ASSETS_DIR = os.environ.get("MODELS_DIR", str(_REPO_ROOT / "models"))
 
 VIT_CAPTION_MODEL_PATH = os.getenv(
     "VIT_CAPTION_MODEL_PATH",

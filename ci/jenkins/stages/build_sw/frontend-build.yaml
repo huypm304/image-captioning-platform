@@ -1,0 +1,4 @@
+name: Frontend Build
+agent: laptop
+steps:
+  - "cd applications/web && npm install && npm run build"

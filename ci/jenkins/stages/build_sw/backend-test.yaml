@@ -1,0 +1,4 @@
+name: Backend Test
+agent: laptop
+steps:
+  - "python3 -m venv .ci-venv && . .ci-venv/bin/activate && pip install -q -r applications/api/requirements.txt -r applications/api/requirements-dev.txt && PYTHONPATH=applications/api pytest -q applications/api/tests"

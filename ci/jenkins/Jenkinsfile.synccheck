@@ -1,0 +1,60 @@
+// gitops-sync-check: verify Argo CD sync status, rollout health, and smoke-test the API.
+// Trigger: downstream of app-ci-pipeline (after git push to manifest repo) or manual.
+// Requires: aws-creds-id, argocd-creds (ARGOCD_SERVER + ARGOCD_AUTH_TOKEN).
+pipeline {
+  agent none
+
+  parameters {
+    string(
+      name: 'AGENT_LABEL',
+      defaultValue: 'laptop',
+      description: 'Parameters — agent label (kubectl, argocd CLI, curl). AWS + Argo creds fixed: aws-creds-id, argocd-creds.'
+    )
+    string(
+      name: 'APP_NAME',
+      defaultValue: 'demo-app',
+      description: 'Parameters — Argo CD Application name for argocd app wait / get.'
+    )
+  }
+
+  environment {
+    AWS_REGION         = 'ap-southeast-1'
+    AWS_DEFAULT_REGION = 'ap-southeast-1'
+    CLUSTER_NAME       = 'image-caption-dev-eks'
+  }
+
+  options {
+    timestamps()
+  }
+
+  stages {
+    stage('GitOps Sync Check') {
+      steps {
+        script {
+          def stagesDir = 'ci/jenkins/stages/synccheck'
+          def checkStages = ['argocd-app-status', 'kubectl-rollout', 'smoke-test']
+
+          withCredentials([
+            [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds-id'],
+            usernamePassword(
+              credentialsId: 'argocd-creds',
+              usernameVariable: 'ARGOCD_SERVER',
+              passwordVariable: 'ARGOCD_AUTH_TOKEN'
+            )
+          ]) {
+            node(params.AGENT_LABEL) {
+              checkout scm
+
+              checkStages.each { sName ->
+                def cfg = readYaml file: "${stagesDir}/${sName}.yaml"
+                stage(cfg.name) {
+                  cfg.steps.each { cmd -> sh cmd }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

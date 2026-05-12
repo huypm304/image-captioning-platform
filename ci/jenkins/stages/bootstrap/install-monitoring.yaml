@@ -1,0 +1,18 @@
+name: Install Monitoring
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    REPO_ROOT="${WORKSPACE}";
+    K8S_DIR="${REPO_ROOT}/deploy/kubernetes";
+    PROM_VALUES="${REPO_ROOT}/observability/prometheus/values.yaml";
+    echo "=== Installing kube-prometheus-stack ===";
+    kubectl apply -f "${K8S_DIR}/namespaces.yaml";
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts;
+    helm repo update;
+    helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+      -n monitoring \
+      -f "${PROM_VALUES}" \
+      --wait --timeout 5m;
+    echo "Monitoring installed.";
+    echo "Access: kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring"'

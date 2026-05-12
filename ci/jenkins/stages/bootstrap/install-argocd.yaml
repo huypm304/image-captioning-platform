@@ -1,0 +1,9 @@
+name: Install Argo CD
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    cd "${WORKSPACE}";
+    bash infrastructure/scripts/09-install-argocd.sh;
+    kubectl apply -f deploy/argocd/applications/;
+    echo "Argo CD installed and Applications applied."'

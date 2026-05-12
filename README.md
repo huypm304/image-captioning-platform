@@ -2,7 +2,7 @@
 
 AI-powered image captioning on AWS EKS — MVP DevOps/MLOps platform demonstrating Terraform automation, Jenkins CI/CD, Kubernetes deployments, ML inference workload, monitoring, and logging.
 
-**Repository layout (product-style monorepo):** `backend/` + `frontend/` (services), `infra/` (Terraform + platform Helm values + raw K8s), `deploy/` (application Helm chart + Argo GitOps), `ci/jenkins/` (pipelines), `scripts/` (operator automation).
+**Repository layout** (aligned with a typical `platform/` product tree, at repo root): **`applications/`** (api + web), **`deploy/`** (`helm/`, `kubernetes/`, `argocd/`), **`infrastructure/`** (`terraform/`, `scripts/`), **`observability/`** (Prometheus / Loki / Grafana placeholders), **`models/`** (weights, gitignored), **`ci/jenkins/`**, **`docs/`**.
 
 ## Architecture
 
@@ -25,15 +25,15 @@ Terraform state is stored remotely on **S3 + DynamoDB lock**; infra changes are 
 
 | Service | Chart | Namespace |
 |---------|-------|-----------|
-| Backend (FastAPI caption inference) | local [`deploy/charts/demo-app`](deploy/charts/demo-app) | default |
-| Frontend (React + nginx) | local [`deploy/charts/demo-app`](deploy/charts/demo-app) | default |
+| Backend (FastAPI caption inference) | local [`deploy/helm/demo-app`](deploy/helm/demo-app) | default |
+| Frontend (React + nginx) | local [`deploy/helm/demo-app`](deploy/helm/demo-app) | default |
 | Prometheus + Grafana | kube-prometheus-stack | monitoring |
 | Loki + Promtail | grafana/loki-stack | logging |
 | ALB Controller | eks/aws-load-balancer-controller | kube-system |
 
 #### Loki — how logs reach Grafana
 
-- **Loki + Promtail** ([`infra/helm-values/loki-values.yaml`](infra/helm-values/loki-values.yaml)): Promtail ships **container logs** to Loki. Grafana (kube-prometheus-stack) gets a **Loki datasource** in [`infra/helm-values/monitoring-values.yaml`](infra/helm-values/monitoring-values.yaml) (`http://loki.logging.svc.cluster.local:3100`). Use Grafana → **Explore** → datasource **Loki** to query pod logs. The FastAPI app does not call Loki from Python; logging is at the cluster level.
+- **Loki + Promtail** ([`observability/loki/values.yaml`](observability/loki/values.yaml)): Promtail ships **container logs** to Loki. Grafana (kube-prometheus-stack) gets a **Loki datasource** from [`observability/prometheus/values.yaml`](observability/prometheus/values.yaml) (`http://loki.logging.svc.cluster.local:3100`). Use Grafana → **Explore** → datasource **Loki** to query pod logs. The FastAPI app does not call Loki from Python; logging is at the cluster level.
 
 ## Tech Stack
 
@@ -77,39 +77,32 @@ flowchart TD
 ## Quick Start
 
 ```bash
-# 0. One-time: S3 bucket + DynamoDB lock table + infra/terraform/backend.hcl
-./scripts/00-bootstrap-tf-backend.sh
+# 0. One-time: S3 bucket + DynamoDB lock table + infrastructure/terraform/backend.hcl
+./infrastructure/scripts/00-bootstrap-tf-backend.sh
 
-# 1. Jenkins: create a Pipeline job, Script Path = ci/jenkins/Jenkinsfile.infra
-#    - Default parameter STAGE=plan
-#    - After a green plan, use "Build with Parameters" -> STAGE=apply
+# 1. Jenkins job: infra-pipeline (Script Path = ci/jenkins/Jenkinsfile.infra)
+#    - STAGE=plan  (default) — review output
+#    - STAGE=apply — provisions EKS, ECR, S3, ACM, Route53
 
-# 2. Configure kubectl
-./scripts/02-configure-kubectl.sh
+# 2. Jenkins job: cluster-bootstrap (Script Path = ci/jenkins/Jenkinsfile.bootstrap)
+#    - Run once after infra-pipeline apply
+#    - Installs ALB controller, Prometheus+Grafana, Loki, Argo CD, applies Argo Applications
 
-# 3. Install AWS Load Balancer Controller
-./scripts/03-install-alb.sh
+# 3. (On VPS) Jenkins controller
+./infrastructure/scripts/06-setup-jenkins-vps.sh
 
-# 4. Deploy services (Monitoring + Logging)
-./scripts/04-deploy-services.sh
+# 4. (On laptop) Agent tools (kubectl, helm, eksctl, argocd CLI)
+./infrastructure/scripts/07-setup-jenkins-agent.sh
 
-# 5. Verify
-./scripts/05-verify.sh
+# 5. Put model files under models/, then upload to S3 (required for inference)
+./infrastructure/scripts/08-upload-models.sh
 
-# 6. (On VPS) Jenkins controller
-./scripts/06-setup-jenkins-vps.sh
+# 6. Jenkins job: app-ci-pipeline (Script Path = ci/jenkins/Jenkinsfile.app)
+#    - Runs automatically on every push (pollSCM)
+#    - test → build → push ECR → git commit manifest → Argo CD syncs
 
-# 7. (On laptop) Agent tools
-./scripts/07-setup-jenkins-agent.sh
-
-# 8. Put model files under backend/patched_models/, then upload to S3 (required for inference)
-./scripts/08-upload-models.sh
-
-# 9. Install Argo CD (one-time per cluster)
-./scripts/09-install-argocd.sh
-
-# 10. Register Argo CD Applications (edit repoURL in YAML if you forked)
-kubectl apply -f deploy/gitops/applications/
+# 7. (Optional) Jenkins job: gitops-sync-check (Script Path = ci/jenkins/Jenkinsfile.synccheck)
+#    - Verify Argo CD sync + rollout health + smoke test /health
 ```
 
 ### Recreating AWS from scratch (after `terraform destroy`)
@@ -118,14 +111,14 @@ Everything in steps **3–10** needs a **running EKS cluster** and working `kube
 
 **Recommended order:**
 
-1. **Repo only (no AWS):** In [`deploy/gitops/applications/`](deploy/gitops/applications/), set `repoURL` / `targetRevision` to the Git repo Argo will read (fork or default). Configure Jenkins credentials `aws-creds-id` and `gitops-git-pat` on the controller.
-2. **Terraform:** `./scripts/00-bootstrap-tf-backend.sh` once (if new account/region), then Infra job or `terraform apply` until EKS, ECR, S3, Route53, ACM exist.
-3. **Cluster access:** `./scripts/02-configure-kubectl.sh` — confirm `kubectl get nodes`.
-4. **In-cluster stack:** `./scripts/03-install-alb.sh` → `./scripts/04-deploy-services.sh` → `./scripts/05-verify.sh`.
-5. **Jenkins / agent:** `./scripts/06-setup-jenkins-vps.sh`, `./scripts/07-setup-jenkins-agent.sh` (machines can be prepared anytime).
-6. **Models:** `./scripts/08-upload-models.sh`.
-7. **GitOps CD:** `./scripts/09-install-argocd.sh` → `kubectl apply -f deploy/gitops/applications/`.
-8. **CI → CD:** Run App pipeline with `STAGE=all` (or at least through `gitops`) so `values-argocd.yaml` and Grafana ingress placeholders are committed; then Argo sync completes.
+1. **Repo only (no AWS):** In [`deploy/argocd/applications/`](deploy/argocd/applications/), set `repoURL` / `targetRevision` to the Git repo Argo will read (fork or default). Configure Jenkins credentials `aws-creds-id` and `gitops-git-pat` on the controller.
+2. **Terraform:** `./infrastructure/scripts/00-bootstrap-tf-backend.sh` once (if new account/region), then Infra job or `terraform apply` until EKS, ECR, S3, Route53, ACM exist.
+3. **Cluster access:** `./infrastructure/scripts/02-configure-kubectl.sh` — confirm `kubectl get nodes`.
+4. **In-cluster stack:** Run **`cluster-bootstrap`** job (`ci/jenkins/Jenkinsfile.bootstrap`) — or manually: `03-install-alb.sh` → `04-deploy-services.sh` → `05-verify.sh`.
+5. **Jenkins / agent:** `./infrastructure/scripts/06-setup-jenkins-vps.sh`, `./infrastructure/scripts/07-setup-jenkins-agent.sh` (machines can be prepared anytime).
+6. **Models:** `./infrastructure/scripts/08-upload-models.sh`.
+7. **GitOps CD:** `./infrastructure/scripts/09-install-argocd.sh` → `kubectl apply -f deploy/argocd/applications/`.
+8. **CI → CD:** Run **`app-ci-pipeline`** — it will test, build, push to ECR, commit updated manifests, and push to Git. Argo CD picks up the push and syncs automatically.
 
 Optional: remove stale kubeconfig contexts after destroy: `kubectl config get-contexts` then `kubectl config delete-context …`.
 
@@ -135,58 +128,78 @@ After `terraform apply` outputs `route53_nameservers`, update your Namecheap DNS
 
 ## Jenkins Pipelines
 
-| Job | Script Path | Purpose |
-|-----|-------------|---------|
-| Infra | `ci/jenkins/Jenkinsfile.infra` | Terraform `init` + `plan` / `apply` / `destroy` |
-| App | `ci/jenkins/Jenkinsfile` | **CI**: test, security, ECR build/push, GitOps commit; optional **`cluster-setup`** / **`all-with-cluster`** on the same agent (no Infra job); optional `deploy-legacy` |
+Four separate jobs, each with a single responsibility. In Jenkins: **New Item → Pipeline**, set Script Path per table below.
 
-**Important:** In Jenkins job configuration, set **Script Path** to `ci/jenkins/Jenkinsfile` (App) or `ci/jenkins/Jenkinsfile.infra` (Infra) — not `jenkins/...` (old path).
+Step definitions are YAML files under [`ci/jenkins/stages/`](ci/jenkins/stages/), grouped by job: **`infra/`**, **`build_sw/`** (app CI: test, build, GitOps), **`bootstrap/`**, **`synccheck/`** (each Jenkinsfile sets `stagesDir` to the matching folder).
 
-### Infra pipeline (`STAGE` parameter)
+| Job name | Script Path | When to run | Trigger |
+|----------|-------------|-------------|---------|
+| `infra-pipeline` | [`ci/jenkins/Jenkinsfile.infra`](ci/jenkins/Jenkinsfile.infra) | Provision / change / destroy AWS infra (EKS, ECR, S3, ACM…) | Manual |
+| `cluster-bootstrap` | [`ci/jenkins/Jenkinsfile.bootstrap`](ci/jenkins/Jenkinsfile.bootstrap) | One-time platform setup after EKS is ready (ALB, monitoring, logging, Argo CD) | Manual |
+| `app-ci-pipeline` | [`ci/jenkins/Jenkinsfile.app`](ci/jenkins/Jenkinsfile.app) | Every code push: test → build → push ECR → GitOps commit | `pollSCM` / webhook |
+| `gitops-sync-check` | [`ci/jenkins/Jenkinsfile.synccheck`](ci/jenkins/Jenkinsfile.synccheck) | Verify Argo CD sync, rollout health, and API smoke test | Downstream of `app-ci-pipeline` or manual |
 
-- `plan`: `tf-init` + `tf-plan` (archives tfplan artifacts). Console prints **ACM certificate ARN** from current state when available.
-- `apply`: `tf-init` + `tf-apply`. After apply, console prints a **banner with `acm_certificate_arn`** (single line, easy to copy) plus full `terraform output`.
-- `plan-then-apply`: plan then apply saved plan
-- `destroy`: `tf-init` + `tf-destroy`
+### 1. infra-pipeline (`STAGE` parameter)
 
-### App pipeline (`STAGE` parameter)
+- `plan` (default): `tf-init` → **`tf-fmt`** → **`tf-validate`** → `tf-plan` (archives tfplan). Console prints ACM ARN from state.
+- `apply`: `tf-init` → `tf-apply`. Prints banner with `acm_certificate_arn` after apply.
+- `plan-then-apply`: `tf-init` → `tf-fmt` → `tf-validate` → `tf-plan` → `tf-apply`
+- `destroy`: `tf-init` → `tf-destroy`
 
-- `all`: `checkout` → `test` → `security` → `build` → `gitops` (CI + Git push only; no kubectl on cluster).
-- `all-with-cluster`: same as `all`, then **[`cluster-setup`](ci/jenkins/stages/cluster-setup.yaml)** on the laptop agent: [`scripts/02-configure-kubectl.sh`](scripts/02-configure-kubectl.sh) → [`03-install-alb.sh`](scripts/03-install-alb.sh) → [`04-deploy-services.sh`](scripts/04-deploy-services.sh) → [`05-verify.sh`](scripts/05-verify.sh) → [`09-install-argocd.sh`](scripts/09-install-argocd.sh) → `kubectl apply -f deploy/gitops/applications/`. Use after **Infra** has created EKS so you do not SSH in only to run scripts.
-- `cluster-setup`: run only the cluster script block above (skip tests/build when cluster already has images and you only need to (re)install ALB/monitoring/Argo).
-- `checkout`: Git checkout only
-- `test`: backend `pytest` + frontend `npm install` / `npm run build`
-- `security`: **Trivy** filesystem scan on `backend/` and `frontend/` (HIGH/CRITICAL; `--exit-code 0` for MVP so the pipeline stays green while you tune policies)
-- `build`: Docker build + push backend and frontend images to ECR (`BUILD_NUMBER` tag)
-- `gitops`: read Terraform outputs, render [`deploy/charts/demo-app/values-argocd.yaml`](deploy/charts/demo-app/values-argocd.yaml) + [`deploy/gitops/manifests/grafana/ingress.yaml`](deploy/gitops/manifests/grafana/ingress.yaml), **print ACM ARN to the Jenkins console**, then **git commit + push** (Argo CD syncs from Git)
-- `deploy-legacy`: **emergency only** — direct `helm upgrade` + kubectl (see [`ci/jenkins/stages/deploy-legacy.yaml`](ci/jenkins/stages/deploy-legacy.yaml)). Not used in normal GitOps flow.
+### 2. cluster-bootstrap
 
-Agent prep: [`scripts/07-setup-jenkins-agent.sh`](scripts/07-setup-jenkins-agent.sh) installs **eksctl** (required by `03-install-alb.sh`). Model upload **[`08-upload-models.sh`](scripts/08-upload-models.sh)** stays manual or a separate run — it expects `backend/patched_models/` on the machine that runs it.
+No parameters — fixed sequence (requires EKS to exist from `infra-pipeline apply`):
+
+`configure-kubectl` → `install-alb` → `install-monitoring` → `install-logging` → `install-argocd` → `verify-cluster`
+
+Run once after first `infra-pipeline apply`; re-run anytime to reinstall individual components.
+
+### 3. app-ci-pipeline
+
+Pure CI — no cluster access, runs on every push:
+
+`checkout` → `backend-test` → `frontend-build` → `security-scan` → `docker-build-push` → `update-gitops`
+
+- `backend-test`: `pytest` for `applications/api`
+- `frontend-build`: `npm install && npm run build` for `applications/web`
+- `security-scan`: **Trivy** fs scan HIGH/CRITICAL (`--exit-code 0` for MVP)
+- `docker-build-push`: Docker build + ECR push for backend and frontend (`BUILD_NUMBER` tag)
+- `update-gitops`: reads Terraform outputs, renders [`deploy/helm/demo-app/values-argocd.yaml`](deploy/helm/demo-app/values-argocd.yaml) + Grafana ingress, **git commit + push** → triggers Argo CD sync
+
+### 4. gitops-sync-check
+
+`argocd-app-status` → `kubectl-rollout` → `smoke-test`
+
+- `argocd-app-status`: `argocd app wait --health --sync --timeout 120`
+- `kubectl-rollout`: `kubectl rollout status` for backend + frontend deployments
+- `smoke-test`: resolves ALB hostname from ingress, retries `GET /health` up to 5 times
 
 ### Jenkins credentials
 
-| ID | Type | Value |
-|----|------|-------|
-| `aws-creds-id` | AWS Credentials | IAM access key for ECR/EKS/Terraform/S3 |
-| `gitops-git-pat` | Username + password | Git HTTPS user + PAT (or user + token) used only in `gitops` stage to push manifest updates |
+| ID | Type | Used by |
+|----|------|---------|
+| `aws-creds-id` | AWS Credentials | all four pipelines |
+| `gitops-git-pat` | Username + password | `app-ci-pipeline` (`update-gitops` stage only) |
+| `argocd-creds` | Username + password | `gitops-sync-check` (username = ArgoCD server URL, password = auth token) |
 
 Notes:
-- `ECR_REGISTRY` is computed automatically in [`ci/jenkins/Jenkinsfile`](ci/jenkins/Jenkinsfile) from AWS account id + region (no separate ECR registry secret required).
-- `git push` requires `origin` to use an **HTTPS** URL (so the PAT can be embedded for the push). SSH remotes are not handled by the default `gitops` script.
-- After the first successful `gitops` commit, **Argo CD** applies [`deploy/gitops/applications/demo-app-application.yaml`](deploy/gitops/applications/demo-app-application.yaml) and syncs the Helm chart at [`deploy/charts/demo-app`](deploy/charts/demo-app) using `values.yaml` + `values-argocd.yaml`.
+- `ECR_REGISTRY` is computed automatically from AWS account id + region — no separate secret needed.
+- `git push` in `update-gitops` requires `origin` to use an **HTTPS** URL.
+- After the first successful `update-gitops` commit, Argo CD syncs [`deploy/helm/demo-app`](deploy/helm/demo-app) using `values.yaml` + `values-argocd.yaml`.
+- Agent prep: [`infrastructure/scripts/07-setup-jenkins-agent.sh`](infrastructure/scripts/07-setup-jenkins-agent.sh) installs kubectl, helm, eksctl, argocd CLI.
+- Model upload ([`infrastructure/scripts/08-upload-models.sh`](infrastructure/scripts/08-upload-models.sh)) stays manual — run after S3 bucket exists.
+## Argo CD (CD)<!--  -->
 
-## Argo CD (CD)
+- **Install**: [`infrastructure/scripts/09-install-argocd.sh`](infrastructure/scripts/09-install-argocd.sh) installs the upstream **Argo CD** Helm chart into namespace `argocd`.
+- **Applications**: apply manifests under [`deploy/argocd/applications/`](deploy/argocd/applications/) (edit `repoURL` / `targetRevision` if you fork or use a release branch).
+- **Demo app**: Helm source path `deploy/helm/demo-app` with `values.yaml` + `values-argocd.yaml`.
+- **Grafana ingress**: separate Application pointing at [`deploy/argocd/manifests/grafana`](deploy/argocd/manifests/grafana) (Kustomize), same ALB group annotation as the app chart.
 
-- **Install**: [`scripts/09-install-argocd.sh`](scripts/09-install-argocd.sh) installs the upstream **Argo CD** Helm chart into namespace `argocd`.
-- **Applications**: apply manifests under [`deploy/gitops/applications/`](deploy/gitops/applications/) (edit `repoURL` / `targetRevision` if you fork or use a release branch).
-- **Demo app**: Helm source path `deploy/charts/demo-app` with `values.yaml` + `values-argocd.yaml`.
-- **Grafana ingress**: separate Application pointing at [`deploy/gitops/manifests/grafana`](deploy/gitops/manifests/grafana) (Kustomize), same ALB group annotation as the app chart.
-
-More detail: [`deploy/gitops/README.md`](deploy/gitops/README.md).
+More detail: [`deploy/argocd/README.md`](deploy/argocd/README.md).
 
 ## Application
 
-### Backend (`backend/`)
+### Backend (`applications/api/`)
 
 FastAPI app serving a ViT image-captioning model.
 
@@ -199,7 +212,7 @@ Model loading:
 - `initContainer` copies `patched_models/` from S3 into `/models` via IRSA.
 - If S3 prefix is empty, inference will fail with `Missing model file: /models/...`.
 
-### Frontend (`frontend/`)
+### Frontend (`applications/web/`)
 
 React + Vite SPA with image upload, preview, and caption display.
 
@@ -211,13 +224,13 @@ API base URL selection:
 
 ```bash
 # Backend
-cd backend
+cd applications/api
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn api:app --host 0.0.0.0 --port 8000
 
 # Frontend (separate terminal)
-cd frontend
+cd applications/web
 npm install
 VITE_API_URL=http://localhost:8000 npm run dev
 ```
@@ -242,7 +255,7 @@ This means S3 `patched_models/` is empty or not synced to the pod.
 
 1) Get the bucket name:
 ```bash
-cd infra/terraform
+cd infrastructure/terraform
 terraform output -raw models_bucket
 ```
 
@@ -253,7 +266,7 @@ aws s3 ls "s3://<bucket>/patched_models/"
 
 3) Upload models (one-time / when updated):
 ```bash
-./scripts/08-upload-models.sh
+./infrastructure/scripts/08-upload-models.sh
 ```
 
 4) Restart backend to re-run initContainer:
@@ -284,17 +297,23 @@ curl -i -X OPTIONS \
 ## Project Structure
 
 ```
-├── backend/                 # FastAPI + Dockerfile + tests; patched_models/ (gitignored)
-├── frontend/                # React + Vite + Dockerfile
-├── infra/
-│   ├── terraform/           # VPC, EKS, ECR, S3, IRSA, Route53, ACM
-│   ├── helm-values/         # kube-prometheus-stack, loki-stack, ALB chart values
-│   └── k8s/                 # Namespaces, legacy Grafana ingress template
+├── applications/
+│   ├── api/                 # FastAPI + Dockerfile + tests
+│   └── web/                 # React + Vite + Dockerfile
 ├── deploy/
-│   ├── charts/demo-app/     # Application Helm chart (+ values-argocd for GitOps)
-│   └── gitops/              # Argo CD Applications + Grafana Kustomize
-├── ci/jenkins/              # Jenkinsfile, Jenkinsfile.infra, stage YAML
-└── scripts/                 # 00-bootstrap … 09-install-argocd
+│   ├── helm/demo-app/       # Application Helm chart (+ values-argocd for GitOps)
+│   ├── kubernetes/        # Namespaces, ALB values ref, legacy Grafana ingress YAML
+│   └── argocd/              # Argo CD Applications + Grafana Kustomize
+├── infrastructure/
+│   ├── terraform/           # VPC, EKS, ECR, S3, IRSA, Route53, ACM
+│   └── scripts/             # 00-bootstrap … 09-install-argocd
+├── observability/
+│   ├── prometheus/          # kube-prometheus-stack values
+│   ├── loki/                # loki-stack values
+│   └── grafana/             # placeholder (Grafana via prometheus chart)
+├── models/                  # Weights (gitignored); runtime reads via MODELS_DIR default
+├── ci/jenkins/              # Jenkinsfile.* + stages/{infra,build_sw,bootstrap,synccheck}/*.yaml
+└── docs/                    # Doc index → root README
 ```
 
 ## Environment

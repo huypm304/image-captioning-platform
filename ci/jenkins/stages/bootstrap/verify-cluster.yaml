@@ -1,0 +1,7 @@
+name: Verify Cluster
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    cd "${WORKSPACE}";
+    bash infrastructure/scripts/05-verify.sh'

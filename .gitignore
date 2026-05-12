@@ -1,16 +1,18 @@
 # Terraform
-terraform/.terraform/
-terraform/.terraform.lock.hcl
-terraform/backend.hcl
-terraform/tfplan
-terraform/tfplan.txt
-terraform/tfplan.show.txt
-terraform/crash.log
+infrastructure/terraform/.terraform/
+infrastructure/terraform/.terraform.lock.hcl
+infrastructure/terraform/backend.hcl
+infrastructure/terraform/tfplan
+infrastructure/terraform/tfplan.txt
+infrastructure/terraform/tfplan.show.txt
+infrastructure/terraform/crash.log
 *.tfstate
 *.tfstate.*
 
-# Image captioning (large model artifacts; sync to S3 via scripts/08-upload-models.sh)
-image-captioning/patched_models/
-image-captioning/__pycache__/
+# Model weights (large; sync to S3 via infrastructure/scripts/08-upload-models.sh)
+models/*
+!models/.gitkeep
 .cursor/
-README.md
+
+# CI local venv
+.ci-venv/

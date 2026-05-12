@@ -10,8 +10,6 @@ from PIL import Image, UnidentifiedImageError
 from prometheus_fastapi_instrumentator import Instrumentator
 from pythonjsonlogger import jsonlogger
 
-from vit_inference import generate_caption
-
 logger = logging.getLogger("backend")
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
@@ -66,6 +64,8 @@ async def predict(
     )
 
     try:
+        from vit_inference import generate_caption
+
         start = time.perf_counter()
         caption_text = generate_caption(img, strategy=strategy, beam_width=beam_width)
         duration = time.perf_counter() - start

@@ -50,7 +50,7 @@ output "ecr_registry_host" {
 }
 
 output "models_bucket" {
-  description = "S3 bucket for image-captioning patched_models (sync via scripts/08-upload-models.sh)"
+  description = "S3 bucket for models/ artifacts (sync via infrastructure/scripts/08-upload-models.sh)"
   value       = aws_s3_bucket.models.bucket
 }
 

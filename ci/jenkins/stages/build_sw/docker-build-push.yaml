@@ -1,10 +1,10 @@
-name: Build
+name: Docker Build & Push
 agent: laptop
 steps:
   - "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-  - "docker build -t ${ECR_REPO_BE}:${BUILD_NUMBER} ./backend"
+  - "docker build -t ${ECR_REPO_BE}:${BUILD_NUMBER} ./applications/api"
   - "docker tag ${ECR_REPO_BE}:${BUILD_NUMBER} ${ECR_REGISTRY}/${ECR_REPO_BE}:${BUILD_NUMBER}"
   - "docker push ${ECR_REGISTRY}/${ECR_REPO_BE}:${BUILD_NUMBER}"
-  - "docker build -t ${ECR_REPO_FE}:${BUILD_NUMBER} ./frontend"
+  - "docker build -t ${ECR_REPO_FE}:${BUILD_NUMBER} ./applications/web"
   - "docker tag ${ECR_REPO_FE}:${BUILD_NUMBER} ${ECR_REGISTRY}/${ECR_REPO_FE}:${BUILD_NUMBER}"
   - "docker push ${ECR_REGISTRY}/${ECR_REPO_FE}:${BUILD_NUMBER}"

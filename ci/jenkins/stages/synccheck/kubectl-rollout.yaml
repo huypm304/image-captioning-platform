@@ -1,0 +1,11 @@
+name: kubectl Rollout Status
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    echo "=== Backend rollout ===";
+    kubectl rollout status deployment/demo-app -n default --timeout=120s;
+    echo "=== Frontend rollout ===";
+    kubectl rollout status deployment/demo-app-frontend -n default --timeout=120s;
+    echo "All rollouts complete.";
+    kubectl get pods -n default -l "app.kubernetes.io/instance=demo-app"'

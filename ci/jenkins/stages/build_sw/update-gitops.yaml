@@ -1,4 +1,4 @@
-name: GitOps
+name: Update GitOps
 agent: laptop
 steps:
   - >-
@@ -6,8 +6,8 @@ steps:
     REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}";
     export AWS_DEFAULT_REGION="${REGION}";
     ACCOUNT=$(aws sts get-caller-identity --query Account --output text);
-    printf "bucket = \"image-caption-dev-tfstate-%s\"\nkey = \"image-caption/dev/terraform.tfstate\"\nregion = \"%s\"\ndynamodb_table = \"image-caption-dev-tflock\"\nencrypt = true\n" "${ACCOUNT}" "${REGION}" > infra/terraform/backend.hcl;
-    cd infra/terraform;
+    printf "bucket = \"image-caption-dev-tfstate-%s\"\nkey = \"image-caption/dev/terraform.tfstate\"\nregion = \"%s\"\ndynamodb_table = \"image-caption-dev-tflock\"\nencrypt = true\n" "${ACCOUNT}" "${REGION}" > infrastructure/terraform/backend.hcl;
+    cd infrastructure/terraform;
     terraform init -input=false -no-color -backend-config=backend.hcl >/dev/null;
     BUCKET=$(terraform output -raw models_bucket);
     ROLE_ARN=$(terraform output -raw demo_app_role_arn);
@@ -24,14 +24,14 @@ steps:
       -e "s|__DEMO_APP_ROLE_ARN__|${ROLE_ARN}|g" \
       -e "s|__MODELS_BUCKET__|${BUCKET}|g" \
       -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
-      deploy/charts/demo-app/values-argocd.yaml;
+      deploy/helm/demo-app/values-argocd.yaml;
     sed -i.bak \
       -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
-      deploy/gitops/manifests/grafana/ingress.yaml;
-    rm -f deploy/charts/demo-app/values-argocd.yaml.bak deploy/gitops/manifests/grafana/ingress.yaml.bak;
+      deploy/argocd/manifests/grafana/ingress.yaml;
+    rm -f deploy/helm/demo-app/values-argocd.yaml.bak deploy/argocd/manifests/grafana/ingress.yaml.bak;
     git config user.email "jenkins@localhost";
     git config user.name "Jenkins CI";
-    git add deploy/charts/demo-app/values-argocd.yaml deploy/gitops/manifests/grafana/ingress.yaml;
+    git add deploy/helm/demo-app/values-argocd.yaml deploy/argocd/manifests/grafana/ingress.yaml;
     if git diff --cached --quiet; then echo "No GitOps changes to commit"; exit 0; fi;
     git commit -m "ci(gitops): bump images to ${TAG} and sync ACM ARN";
     BR=$(git rev-parse --abbrev-ref HEAD);

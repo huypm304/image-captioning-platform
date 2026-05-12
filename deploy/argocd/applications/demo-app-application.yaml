@@ -12,7 +12,7 @@ spec:
   source:
     repoURL: https://github.com/huypm304/image-captioning-platform.git
     targetRevision: HEAD
-    path: app/chart
+    path: deploy/helm/demo-app
     helm:
       valueFiles:
         - values.yaml

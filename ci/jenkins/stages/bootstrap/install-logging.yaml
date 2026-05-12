@@ -1,0 +1,15 @@
+name: Install Logging
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    REPO_ROOT="${WORKSPACE}";
+    LOKI_VALUES="${REPO_ROOT}/observability/loki/values.yaml";
+    echo "=== Installing Loki stack ===";
+    helm repo add grafana https://grafana.github.io/helm-charts;
+    helm repo update;
+    helm upgrade --install loki grafana/loki-stack \
+      -n logging \
+      -f "${LOKI_VALUES}" \
+      --wait --timeout 5m;
+    echo "Loki stack installed."'

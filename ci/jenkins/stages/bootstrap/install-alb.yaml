@@ -1,0 +1,7 @@
+name: Install ALB Controller
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    cd "${WORKSPACE}";
+    bash infrastructure/scripts/03-install-alb.sh'
