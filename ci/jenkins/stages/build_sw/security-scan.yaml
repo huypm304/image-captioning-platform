@@ -1,4 +1,13 @@
 name: Security Scan
 agent: laptop
+# Run Trivy in Docker (reliable arch + deps). Same pattern as frontend-build; avoids curl|sh install failures on Jenkins agents.
 steps:
-  - "bash -lc 'set -euo pipefail; if ! command -v trivy >/dev/null 2>&1; then echo Installing Trivy...; curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /tmp/trivy-bin v0.58.0; export PATH=/tmp/trivy-bin:$PATH; fi; trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 0 ./applications/api ./applications/web'"
+  - >-
+    bash -lc 'set -euo pipefail;
+    cd "${WORKSPACE}";
+    docker run --rm
+    -v "${WORKSPACE}:/work:ro"
+    -w /work
+    aquasec/trivy:0.58.0
+    fs --no-progress --scanners vuln --severity HIGH,CRITICAL --exit-code 0
+    ./applications/api ./applications/web'
