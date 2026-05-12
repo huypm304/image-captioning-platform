@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Patch ACM ARN on ALB Ingresses from Terraform state (when Jenkins gitops has not run yet).
-# Run from repo root with: AWS creds, kubectl context = EKS, terraform backend already configured.
+# Patch ACM ARN on ALB Ingresses from Terraform state (preferred) or AWS ACM lookup (fallback).
+# Run from repo root with: AWS creds, kubectl context = EKS.
+# If infrastructure/terraform/backend.hcl is missing (e.g. Jenkins workspace), it is generated
+# from the current AWS account — same bucket/key pattern as ci/jenkins/stages/build_sw/update-gitops.yaml.
+#
+# Optional env:
+#   ACM_CERTIFICATE_ARN  If set, skip discovery and use this ARN.
+#   ACM_LOOKUP_DOMAIN    For AWS fallback (default: minhhuy.me), must match Terraform var.domain_name.
 #
 # Usage:
 #   ./infrastructure/scripts/11-patch-ingress-acm-from-terraform.sh
@@ -21,14 +27,51 @@ REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
 export AWS_DEFAULT_REGION="${REGION}"
 
 TF_DIR="${ROOT}/infrastructure/terraform"
-if [[ ! -f "${TF_DIR}/backend.hcl" ]]; then
-  echo "Missing ${TF_DIR}/backend.hcl — run 00-bootstrap-tf-backend.sh or copy from Terraform output."
+DOMAIN="${ACM_LOOKUP_DOMAIN:-minhhuy.me}"
+
+write_backend_hcl() {
+  local account
+  account="$(aws sts get-caller-identity --query Account --output text)"
+  printf 'bucket = "image-caption-dev-tfstate-%s"\nkey = "image-caption/dev/terraform.tfstate"\nregion = "%s"\ndynamodb_table = "image-caption-dev-tflock"\nencrypt = true\n' \
+    "${account}" "${REGION}" >"${TF_DIR}/backend.hcl"
+  echo "Wrote ${TF_DIR}/backend.hcl for account ${account} (gitignored; same layout as CI)." >&2
+}
+
+resolve_cert_arn() {
+  if [[ -n "${ACM_CERTIFICATE_ARN:-}" ]]; then
+    echo "${ACM_CERTIFICATE_ARN}"
+    return 0
+  fi
+
+  if [[ ! -f "${TF_DIR}/backend.hcl" ]]; then
+    echo "No ${TF_DIR}/backend.hcl — generating from current AWS account..." >&2
+    write_backend_hcl
+  fi
+
+  local out=""
+  cd "${TF_DIR}"
+  if terraform init -input=false -no-color -backend-config=backend.hcl >/dev/null 2>&1; then
+    out="$(terraform output -raw acm_certificate_arn 2>/dev/null || true)"
+  else
+    echo "WARN: terraform init failed (missing state bucket or terraform not installed); trying ACM API." >&2
+  fi
+  if [[ -n "${out}" && "${out}" != "null" ]]; then
+    echo "${out}"
+    return 0
+  fi
+
+  echo "Terraform output unavailable; listing ISSUED ACM certs for ${DOMAIN} in ${REGION}..." >&2
+  aws acm list-certificates --region "${REGION}" --certificate-statuses ISSUED \
+    --query "CertificateSummaryList[?DomainName=='${DOMAIN}' || DomainName=='*.${DOMAIN}'].CertificateArn | [0]" \
+    --output text
+}
+
+CERT_ARN="$(resolve_cert_arn)"
+CERT_ARN="$(echo -n "${CERT_ARN}" | tr -d '[:space:]')"
+if [[ -z "${CERT_ARN}" || "${CERT_ARN}" == "None" || "${CERT_ARN}" == "null" ]]; then
+  echo "ERROR: Could not resolve ACM certificate ARN. Set ACM_CERTIFICATE_ARN, fix Terraform remote state, or ensure an ISSUED cert exists for ${DOMAIN}."
   exit 1
 fi
-
-cd "${TF_DIR}"
-terraform init -input=false -no-color -backend-config=backend.hcl >/dev/null
-CERT_ARN=$(terraform output -raw acm_certificate_arn)
 echo "Using ACM: ${CERT_ARN}"
 
 if [[ "${WAIT_MODE}" -eq 1 ]]; then
