@@ -17,9 +17,11 @@ spec:
     automated:
       prune: false
       selfHeal: true
-  # Bootstrap patches ACM from Terraform; Git may keep a placeholder. Do not revert that annotation.
+  # Bootstrap patches HTTPS + ACM; Git keeps HTTP until Jenkins writes real ARN into Helm values.
   ignoreDifferences:
     - group: networking.k8s.io
       kind: Ingress
       jqPathExpressions:
         - .metadata.annotations["alb.ingress.kubernetes.io/certificate-arn"]
+        - .metadata.annotations["alb.ingress.kubernetes.io/listen-ports"]
+        - .metadata.annotations["alb.ingress.kubernetes.io/ssl-redirect"]

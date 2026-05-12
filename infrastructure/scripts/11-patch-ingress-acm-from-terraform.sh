@@ -98,9 +98,11 @@ fi
 patch_ingress() {
   local ns="$1" name="$2"
   if kubectl get ingress "${name}" -n "${ns}" &>/dev/null; then
-    echo "Patching ${ns}/${name} ..."
+    echo "Patching ${ns}/${name} (HTTPS + ACM) ..."
     kubectl annotate ingress "${name}" -n "${ns}" \
       "alb.ingress.kubernetes.io/certificate-arn=${CERT_ARN}" \
+      'alb.ingress.kubernetes.io/listen-ports=[{"HTTPS":443}]' \
+      'alb.ingress.kubernetes.io/ssl-redirect=443' \
       --overwrite
   else
     echo "(skip) Ingress ${ns}/${name} not found yet — apply Argo apps / sync first."

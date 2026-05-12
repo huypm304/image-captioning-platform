@@ -1,4 +1,6 @@
 {{- if .Values.ingress.enabled }}
+{{- $cert := .Values.ingress.certificateArn | default "" }}
+{{- $certValid := and $cert (not (hasPrefix "__" $cert)) }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -8,7 +10,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: image-caption
-    {{- if .Values.ingress.certificateArn }}
+    {{- if $certValid }}
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificateArn }}
     alb.ingress.kubernetes.io/ssl-redirect: "443"
@@ -16,6 +18,7 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     {{- end }}
 spec:
+  ingressClassName: alb
   rules:
     - host: {{ .Values.ingress.hosts.app }}
       http:
