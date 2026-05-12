@@ -12,10 +12,6 @@ echo "--- ALB Controller ---"
 kubectl get deployment -n kube-system aws-load-balancer-controller
 echo ""
 
-echo "--- PostgreSQL (database namespace) ---"
-kubectl get pods -n database
-echo ""
-
 echo "--- Monitoring (monitoring namespace) ---"
 kubectl get pods -n monitoring
 echo ""
@@ -41,5 +37,4 @@ echo ""
 echo "Quick access (port-forward):"
 echo "  Grafana:    kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring"
 echo "  Demo app:   kubectl port-forward svc/demo-app 8081:80 -n default"
-echo "  PostgreSQL: kubectl port-forward svc/postgres-postgresql 5432:5432 -n database"
 echo "  Jenkins:    runs on VPS (see scripts/06-setup-jenkins-vps.sh)"

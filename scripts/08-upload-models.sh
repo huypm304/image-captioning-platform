@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sync local patched_models/ to the Terraform-created S3 bucket (requires AWS credentials).
+# Sync backend/patched_models/ to the Terraform-created S3 bucket (requires AWS credentials).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,7 +8,7 @@ export AWS_DEFAULT_REGION="${REGION}"
 
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 BUCKET="image-caption-dev-models-${ACCOUNT}"
-LOCAL_DIR="${SCRIPT_DIR}/../image-captioning/patched_models"
+LOCAL_DIR="${SCRIPT_DIR}/../backend/patched_models"
 
 if [ ! -d "${LOCAL_DIR}" ]; then
   echo "Missing ${LOCAL_DIR} — add model files locally before sync."
