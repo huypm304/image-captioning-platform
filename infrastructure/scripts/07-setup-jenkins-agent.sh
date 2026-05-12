@@ -45,6 +45,20 @@ if ! command -v helm &>/dev/null; then
   curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 fi
 
+if ! command -v eksctl &>/dev/null; then
+  echo "Installing eksctl..."
+  ARCH=$(uname -m)
+  case "${ARCH}" in
+    x86_64) EKSCTL_ARCH=amd64 ;;
+    aarch64) EKSCTL_ARCH=arm64 ;;
+    *) echo "Unsupported arch for eksctl: ${ARCH}"; exit 1 ;;
+  esac
+  EKSCTL_VER="0.204.0"
+  curl -fsSL "https://github.com/eksctl-io/eksctl/releases/download/v${EKSCTL_VER}/eksctl_Linux_${EKSCTL_ARCH}.tar.gz" | tar xz -C /tmp
+  sudo install -m 0755 /tmp/eksctl /usr/local/bin/eksctl
+  rm -f /tmp/eksctl
+fi
+
 if ! command -v terraform &>/dev/null; then
   TF_VERSION="1.9.5"
   ARCH=$(uname -m)
@@ -64,4 +78,5 @@ echo "  1) Create Linux user jenkins-agent (or use your user)."
 echo "  2) From VPS Jenkins, add SSH credential and New Node: label=laptop, Launch via SSH."
 echo "  3) On Jenkins: create AWS credential id 'aws-creds-id' (ECR + EKS + Terraform/S3 as needed)."
 echo "  4) For GitOps commits from the App pipeline: credential id 'gitops-git-pat' (Git user + PAT), origin = HTTPS."
-echo "  5) For infra-as-code: run scripts/00-bootstrap-tf-backend.sh once, then Jenkins job Script Path = jenkins/Jenkinsfile.infra."
+echo "  5) For infra-as-code: run infrastructure/scripts/00-bootstrap-tf-backend.sh once, then Jenkins job Script Path = ci/jenkins/Jenkinsfile.infra."
+echo "  6) Optional cluster scripts from CI (same laptop): App job STAGE=all-with-cluster or cluster-setup (needs eksctl; installed above if missing)."

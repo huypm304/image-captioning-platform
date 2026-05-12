@@ -1,0 +1,28 @@
+# Argo CD Application — Helm chart in-repo (path relative to repo root).
+# After installing Argo CD, apply this manifest (update repoURL if forked).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huypm304/image-captioning-platform.git
+    targetRevision: HEAD
+    path: app/chart
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-argocd.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

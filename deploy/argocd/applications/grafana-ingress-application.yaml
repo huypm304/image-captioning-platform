@@ -1,0 +1,20 @@
+# Argo CD Application — Grafana ALB ingress (Kustomize under gitops/manifests/grafana).
+# Set repoURL / targetRevision to match the Git repo Argo CD pulls from (fork if needed).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana-ingress
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huypm304/image-captioning-platform.git
+    targetRevision: HEAD
+    path: gitops/manifests/grafana
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true

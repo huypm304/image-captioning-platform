@@ -17,7 +17,7 @@ if ! kubectl cluster-info &>/dev/null; then
   echo "Fix order:"
   echo "  1) terraform apply (or Jenkins Infra job) so EKS exists"
   echo "  2) aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
-  echo "     (or: ./scripts/02-configure-kubectl.sh)"
+  echo "     (or: ./infrastructure/scripts/02-configure-kubectl.sh)"
   echo "  3) kubectl get nodes   # must work before Helm"
   exit 1
 fi
@@ -39,5 +39,5 @@ echo "Port-forward UI:"
 echo "  kubectl port-forward svc/argocd-server -n argocd 8080:443"
 echo ""
 echo "Then register Applications:"
-echo "  kubectl apply -f gitops/applications/"
+echo "  kubectl apply -f deploy/argocd/applications/"
 echo "(Edit repoURL in those YAML files if this repo is forked.)"

@@ -1,0 +1,5 @@
+name: Test
+agent: laptop
+steps:
+  - "python3 -m venv .ci-venv && . .ci-venv/bin/activate && pip install -q -r backend/requirements.txt -r backend/requirements-dev.txt && PYTHONPATH=backend pytest -q backend/tests"
+  - "cd frontend && npm install && npm run build"

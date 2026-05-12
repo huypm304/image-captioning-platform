@@ -1,0 +1,23 @@
+# GitOps overrides (updated by Jenkins CI — do not hand-edit tags in automation flow).
+# Argo CD Application uses: valueFiles [values.yaml, values-argocd.yaml]
+#
+# Placeholders __*__ are replaced by ci/jenkins/stages/gitops.yaml before git push.
+
+backend:
+  image:
+    repository: "__BACKEND_IMAGE_REPO__"
+    tag: "__IMAGE_TAG__"
+
+frontend:
+  image:
+    repository: "__FRONTEND_IMAGE_REPO__"
+    tag: "__IMAGE_TAG__"
+
+serviceAccount:
+  roleArn: "__DEMO_APP_ROLE_ARN__"
+
+models:
+  s3Bucket: "__MODELS_BUCKET__"
+
+ingress:
+  certificateArn: "__ACM_CERTIFICATE_ARN__"

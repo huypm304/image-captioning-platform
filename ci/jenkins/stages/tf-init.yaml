@@ -14,6 +14,10 @@ steps:
       "region         = \"${REGION}\"" \
       "dynamodb_table = \"image-caption-dev-tflock\"" \
       "encrypt        = true" > backend.hcl
-      
+
+    # Drop stale plan files from a previous run (e.g. apply aborted). Avoids
+    # "Saved plan is stale" when the next job is STAGE=apply with a leftover tfplan.
+    rm -f tfplan tfplan.txt tfplan.show.txt
+
     terraform init -input=false -no-color -reconfigure -backend-config=backend.hcl
     '

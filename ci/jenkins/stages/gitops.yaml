@@ -1,0 +1,48 @@
+name: GitOps
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}";
+    export AWS_DEFAULT_REGION="${REGION}";
+    ACCOUNT=$(aws sts get-caller-identity --query Account --output text);
+    printf "bucket = \"image-caption-dev-tfstate-%s\"\nkey = \"image-caption/dev/terraform.tfstate\"\nregion = \"%s\"\ndynamodb_table = \"image-caption-dev-tflock\"\nencrypt = true\n" "${ACCOUNT}" "${REGION}" > infra/terraform/backend.hcl;
+    cd infra/terraform;
+    terraform init -input=false -no-color -backend-config=backend.hcl >/dev/null;
+    BUCKET=$(terraform output -raw models_bucket);
+    ROLE_ARN=$(terraform output -raw demo_app_role_arn);
+    CERT_ARN=$(terraform output -raw acm_certificate_arn);
+    printf "\n========== ACM Certificate ARN (GitOps manifests / ALB) ==========\n%s\n\n" "${CERT_ARN}";
+    cd ../..;
+    TAG="${BUILD_NUMBER}";
+    BE_REPO="${ECR_REGISTRY}/${ECR_REPO_BE}";
+    FE_REPO="${ECR_REGISTRY}/${ECR_REPO_FE}";
+    sed -i.bak \
+      -e "s|__BACKEND_IMAGE_REPO__|${BE_REPO}|g" \
+      -e "s|__FRONTEND_IMAGE_REPO__|${FE_REPO}|g" \
+      -e "s|__IMAGE_TAG__|${TAG}|g" \
+      -e "s|__DEMO_APP_ROLE_ARN__|${ROLE_ARN}|g" \
+      -e "s|__MODELS_BUCKET__|${BUCKET}|g" \
+      -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
+      deploy/charts/demo-app/values-argocd.yaml;
+    sed -i.bak \
+      -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
+      deploy/gitops/manifests/grafana/ingress.yaml;
+    rm -f deploy/charts/demo-app/values-argocd.yaml.bak deploy/gitops/manifests/grafana/ingress.yaml.bak;
+    git config user.email "jenkins@localhost";
+    git config user.name "Jenkins CI";
+    git add deploy/charts/demo-app/values-argocd.yaml deploy/gitops/manifests/grafana/ingress.yaml;
+    if git diff --cached --quiet; then echo "No GitOps changes to commit"; exit 0; fi;
+    git commit -m "ci(gitops): bump images to ${TAG} and sync ACM ARN";
+    BR=$(git rev-parse --abbrev-ref HEAD);
+    if [ -n "${GIT_TOKEN:-}" ] && [ -n "${GIT_USERNAME:-}" ]; then
+      REMOTE_URL=$(git remote get-url origin);
+      if echo "${REMOTE_URL}" | grep -q "^https://"; then
+        HOSTPATH=$(echo "${REMOTE_URL}" | sed -e "s|^https://||");
+        git push "https://${GIT_USERNAME}:${GIT_TOKEN}@${HOSTPATH}" "HEAD:${BR}";
+      else
+        echo "Configure origin as https://github.com/org/repo.git for PAT push, or use SSH agent"; exit 1;
+      fi;
+    else
+      echo "GIT_USERNAME/GIT_TOKEN not set (Jenkins credentials gitops-git-pat)"; exit 1;
+    fi'

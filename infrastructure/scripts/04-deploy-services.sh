@@ -2,9 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="${SCRIPT_DIR}/.."
-HELM_DIR="${PROJECT_DIR}/helm"
-K8S_DIR="${PROJECT_DIR}/k8s"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+K8S_DIR="${REPO_ROOT}/deploy/kubernetes"
+PROM_VALUES="${REPO_ROOT}/observability/prometheus/values.yaml"
+LOKI_VALUES="${REPO_ROOT}/observability/loki/values.yaml"
 
 echo "=== Phase 3: Deploy Services via Helm ==="
 
@@ -22,18 +23,18 @@ helm repo update
 echo "[3/4] Installing kube-prometheus-stack"
 helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
   -n monitoring \
-  -f "${HELM_DIR}/monitoring-values.yaml" \
+  -f "${PROM_VALUES}" \
   --wait --timeout 5m
 
-# Logging: Promtail → Loki; Grafana uses this via monitoring-values additionalDataSources
+# Logging: Promtail → Loki; Grafana uses this via prometheus values additionalDataSources
 echo "[4/4] Installing Loki stack"
 helm upgrade --install loki grafana/loki-stack \
   -n logging \
-  -f "${HELM_DIR}/loki-values.yaml" \
+  -f "${LOKI_VALUES}" \
   --wait --timeout 5m
 
 echo ""
 echo "=== All services deployed ==="
 echo ""
 echo "Grafana:    kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring"
-echo "Demo app:   Jenkins (jenkins/Jenkinsfile) → ECR + GitOps; ./scripts/08-upload-models.sh syncs backend/patched_models/ to S3"
+echo "Demo app:   Jenkins (ci/jenkins/Jenkinsfile) → ECR + GitOps; infrastructure/scripts/08-upload-models.sh syncs models/ to S3"
