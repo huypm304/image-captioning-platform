@@ -29,15 +29,18 @@ helm upgrade --install argocd argo/argo-cd \
   --namespace argocd \
   --create-namespace \
   --set server.service.type=ClusterIP \
+  --set server.insecure=true \
   --wait --timeout 10m
 
 echo ""
-echo "Argo CD installed. Get initial admin password:"
+echo "Argo CD installed."
+echo "  UI (HTTPS, same ALB as app — after argocd-ingress sync + ACM): https://argocd.minhhuy.me"
+echo "  Fallback: kubectl port-forward svc/argocd-server -n argocd 8080:80  then http://localhost:8080"
+echo ""
+echo "Initial admin password:"
 echo "  kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d && echo"
 echo ""
-echo "Port-forward UI:"
-echo "  kubectl port-forward svc/argocd-server -n argocd 8080:443"
+echo "Helm uses server.insecure=true so the ALB terminates TLS and talks HTTP to the pod."
 echo ""
-echo "Then register Applications:"
+echo "Register Applications (edit repoURL if forked):"
 echo "  kubectl apply -f deploy/argocd/applications/"
-echo "(Edit repoURL in those YAML files if this repo is forked.)"

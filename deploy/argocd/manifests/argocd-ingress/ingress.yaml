@@ -1,0 +1,27 @@
+# Argo CD UI — same ALB group as demo-app / Grafana. TLS terminates at ALB; ACM ARN filled by Jenkins gitops.
+# Requires Helm install with server.insecure=true (see infrastructure/scripts/09-install-argocd.sh).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: image-caption
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: "__ACM_CERTIFICATE_ARN__"
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+spec:
+  rules:
+    - host: argocd.minhhuy.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80

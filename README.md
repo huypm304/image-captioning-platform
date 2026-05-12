@@ -15,7 +15,7 @@ User -> Route53 (minhhuy.me) -> ALB (HTTPS) -> EKS -> Services
 | `app.minhhuy.me` | React frontend |
 | `api.minhhuy.me` | FastAPI backend |
 | `grafana.minhhuy.me` | Grafana dashboards |
-| `jenkins.minhhuy.me` | Jenkins VPS |
+| `argocd.minhhuy.me` | Argo CD UI (ALB + ACM; sau khi sync `argocd-ingress`) |
 
 Jenkins runs **on a VPS** (controller); the **laptop SSH agent** runs **CI** (test, security scan, build/push ECR, commit GitOps manifests). **Argo CD** on the cluster performs **CD** by syncing Helm from Git.
 
@@ -168,10 +168,12 @@ Pure CI — no cluster access, runs on every push:
 
 ### 4. gitops-sync-check
 
-`argocd-app-status` → `kubectl-rollout` → `smoke-test`
+When **`SKIP_ARGOCD_CLI`** is **unchecked** (full check): `argocd-app-status` → `kubectl-rollout` → `smoke-test`.
 
-- **Parameters:** `AGENT_LABEL` (node), **`APP_NAME`** — must match the Argo CD **Application** resource name (`metadata.name` in [`deploy/argocd/applications/demo-app-application.yaml`](deploy/argocd/applications/demo-app-application.yaml)); default in Jenkins is `image-captioning`. The pipeline exports `APP_NAME` into the environment so [`argocd-app-status.yaml`](ci/jenkins/stages/synccheck/argocd-app-status.yaml) can run `argocd app get/wait`.
-- `argocd-app-status`: `argocd app wait --health --sync --timeout 120`
+When **`SKIP_ARGOCD_CLI`** is **checked** (default): `kubectl-rollout` → `smoke-test` only (no Jenkins credential **`argocd-creds`** required).
+
+- **Parameters:** `AGENT_LABEL`, **`APP_NAME`** (must match Argo `Application.metadata.name`, default `image-captioning`; exported as `env.APP_NAME` for scripts). **`SKIP_ARGOCD_CLI`** — leave checked until you add credential **`argocd-creds`** (Username = Argo server URL, Password = token), then uncheck for `argocd app get/wait`.
+- `argocd-app-status`: `argocd app wait --health --sync --timeout 120` (skipped if `SKIP_ARGOCD_CLI`)
 - `kubectl-rollout`: `kubectl rollout status` for backend + frontend deployments (Helm release name may still be `demo-app`; see chart `values.yaml`)
 - `smoke-test`: resolves ALB hostname from ingress, retries `GET /health` up to 5 times
 
@@ -181,7 +183,7 @@ Pure CI — no cluster access, runs on every push:
 |----|------|---------|
 | `aws-creds-id` | AWS Credentials | all four pipelines |
 | `gitops-git-pat` | Username + password | `app-ci-pipeline` (`update-gitops` stage only) |
-| `argocd-creds` | Username + password | `gitops-sync-check` (username = ArgoCD server URL, password = auth token) |
+| `argocd-creds` | Username + password | `gitops-sync-check` when **SKIP_ARGOCD_CLI** is unchecked (username = Argo CD server URL `https://…`, password = login token) |
 
 Notes:
 - `ECR_REGISTRY` is computed automatically from AWS account id + region — no separate secret needed.
@@ -191,7 +193,8 @@ Notes:
 - Model upload ([`infrastructure/scripts/08-upload-models.sh`](infrastructure/scripts/08-upload-models.sh)) stays manual — run after S3 bucket exists.
 ## Argo CD (CD)<!--  -->
 
-- **Install**: [`infrastructure/scripts/09-install-argocd.sh`](infrastructure/scripts/09-install-argocd.sh) installs the upstream **Argo CD** Helm chart into namespace `argocd`.
+- **Install**: [`infrastructure/scripts/09-install-argocd.sh`](infrastructure/scripts/09-install-argocd.sh) installs **Argo CD** (`argocd` namespace) with **`server.insecure=true`** so AWS ALB can terminate TLS and forward HTTP to the server.
+- **UI trên domain**: **`https://argocd.minhhuy.me`** — Ingress Kustomize [`deploy/argocd/manifests/argocd-ingress`](deploy/argocd/manifests/argocd-ingress), Application [`argocd-ingress-application.yaml`](deploy/argocd/applications/argocd-ingress-application.yaml), cùng ALB group `image-caption` + ACM wildcard như app/Grafana. Mật khẩu admin lần đầu: `kubectl -n argocd get secret argocd-initial-admin-secret …` (như script 09). Nếu đã cài Argo trước khi có bản sửa này: `helm upgrade argocd argo/argo-cd -n argocd --reuse-values --set server.insecure=true`.
 - **Applications**: apply manifests under [`deploy/argocd/applications/`](deploy/argocd/applications/) (edit `repoURL` / `targetRevision` if you fork or use a release branch).
 - **Demo app (Argo):** Application name **`image-captioning`** (see [`deploy/argocd/applications/demo-app-application.yaml`](deploy/argocd/applications/demo-app-application.yaml)); Helm source path `deploy/helm/demo-app` with `values.yaml` + `values-argocd.yaml`.
 - **Grafana ingress**: separate Application pointing at [`deploy/argocd/manifests/grafana`](deploy/argocd/manifests/grafana) (Kustomize), same ALB group annotation as the app chart.
