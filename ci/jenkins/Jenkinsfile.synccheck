@@ -12,7 +12,7 @@ pipeline {
     )
     string(
       name: 'APP_NAME',
-      defaultValue: 'demo-app',
+      defaultValue: 'image-captioning',
       description: 'Parameters — Argo CD Application name for argocd app wait / get.'
     )
   }
@@ -44,8 +44,8 @@ pipeline {
           ]) {
             node(params.AGENT_LABEL) {
               checkout scm
-
-              checkStages.each { sName ->
+              env.APP_NAME = params.APP_NAME
+              echo "APP_NAME=${env.APP_NAME} (must match Argo Application metadata.name)"
                 def cfg = readYaml file: "${stagesDir}/${sName}.yaml"
                 stage(cfg.name) {
                   cfg.steps.each { cmd -> sh cmd }

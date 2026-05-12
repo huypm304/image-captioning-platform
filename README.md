@@ -170,8 +170,9 @@ Pure CI — no cluster access, runs on every push:
 
 `argocd-app-status` → `kubectl-rollout` → `smoke-test`
 
+- **Parameters:** `AGENT_LABEL` (node), **`APP_NAME`** — must match the Argo CD **Application** resource name (`metadata.name` in [`deploy/argocd/applications/demo-app-application.yaml`](deploy/argocd/applications/demo-app-application.yaml)); default in Jenkins is `image-captioning`. The pipeline exports `APP_NAME` into the environment so [`argocd-app-status.yaml`](ci/jenkins/stages/synccheck/argocd-app-status.yaml) can run `argocd app get/wait`.
 - `argocd-app-status`: `argocd app wait --health --sync --timeout 120`
-- `kubectl-rollout`: `kubectl rollout status` for backend + frontend deployments
+- `kubectl-rollout`: `kubectl rollout status` for backend + frontend deployments (Helm release name may still be `demo-app`; see chart `values.yaml`)
 - `smoke-test`: resolves ALB hostname from ingress, retries `GET /health` up to 5 times
 
 ### Jenkins credentials
@@ -192,7 +193,7 @@ Notes:
 
 - **Install**: [`infrastructure/scripts/09-install-argocd.sh`](infrastructure/scripts/09-install-argocd.sh) installs the upstream **Argo CD** Helm chart into namespace `argocd`.
 - **Applications**: apply manifests under [`deploy/argocd/applications/`](deploy/argocd/applications/) (edit `repoURL` / `targetRevision` if you fork or use a release branch).
-- **Demo app**: Helm source path `deploy/helm/demo-app` with `values.yaml` + `values-argocd.yaml`.
+- **Demo app (Argo):** Application name **`image-captioning`** (see [`deploy/argocd/applications/demo-app-application.yaml`](deploy/argocd/applications/demo-app-application.yaml)); Helm source path `deploy/helm/demo-app` with `values.yaml` + `values-argocd.yaml`.
 - **Grafana ingress**: separate Application pointing at [`deploy/argocd/manifests/grafana`](deploy/argocd/manifests/grafana) (Kustomize), same ALB group annotation as the app chart.
 
 More detail: [`deploy/argocd/README.md`](deploy/argocd/README.md).

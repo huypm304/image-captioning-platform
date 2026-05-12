@@ -5,6 +5,36 @@ CLUSTER_NAME="${1:-image-caption-dev-eks}"
 REGION="${2:-ap-southeast-1}"
 POLICY_NAME="AWSLoadBalancerControllerIAMPolicy"
 
+# Jenkins agents often lack eksctl in PATH; install a copy without sudo (workspace or /tmp).
+ensure_eksctl() {
+  if command -v eksctl >/dev/null 2>&1; then
+    return 0
+  fi
+  local install_dir="${WORKSPACE:-/tmp}/.jenkins-ci-tools"
+  mkdir -p "${install_dir}"
+  local eksctl_bin="${install_dir}/eksctl"
+  if [[ -x "${eksctl_bin}" ]]; then
+    export PATH="${install_dir}:${PATH}"
+    return 0
+  fi
+  echo "eksctl not in PATH; downloading to ${install_dir} ..."
+  local arch eksctl_arch
+  arch=$(uname -m)
+  case "${arch}" in
+    x86_64) eksctl_arch=amd64 ;;
+    aarch64) eksctl_arch=arm64 ;;
+    *) echo "Unsupported arch for eksctl: ${arch}"; exit 1 ;;
+  esac
+  local ver="${EKSCTL_VERSION:-0.204.0}"
+  curl -fsSL "https://github.com/eksctl-io/eksctl/releases/download/v${ver}/eksctl_Linux_${eksctl_arch}.tar.gz" \
+    | tar xz -C "${install_dir}"
+  chmod +x "${eksctl_bin}"
+  export PATH="${install_dir}:${PATH}"
+  command -v eksctl
+}
+
+ensure_eksctl
+
 echo "=== Phase 2b: Install AWS Load Balancer Controller ==="
 
 # Step 1: Associate OIDC provider

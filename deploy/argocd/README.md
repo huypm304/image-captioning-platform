@@ -6,7 +6,7 @@ Argo CD **`Application`** manifests and **Kustomize** bases live here. Jenkins *
 
 | Path | Purpose |
 |------|---------|
-| [`applications/demo-app-application.yaml`](applications/demo-app-application.yaml) | `Application` → Helm chart [`../helm/demo-app`](../helm/demo-app) |
+| [`applications/demo-app-application.yaml`](applications/demo-app-application.yaml) | `Application` **image-captioning** → Helm chart [`../helm/demo-app`](../helm/demo-app) |
 | [`applications/grafana-ingress-application.yaml`](applications/grafana-ingress-application.yaml) | `Application` → Kustomize [`manifests/grafana`](manifests/grafana) |
 
 ## Order of work
