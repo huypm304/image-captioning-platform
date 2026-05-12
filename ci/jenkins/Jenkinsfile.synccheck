@@ -46,6 +46,8 @@ pipeline {
               checkout scm
               env.APP_NAME = params.APP_NAME
               echo "APP_NAME=${env.APP_NAME} (must match Argo Application metadata.name)"
+
+              checkStages.each { sName ->
                 def cfg = readYaml file: "${stagesDir}/${sName}.yaml"
                 stage(cfg.name) {
                   cfg.steps.each { cmd -> sh cmd }
