@@ -6,4 +6,12 @@ steps:
     cd "${WORKSPACE}";
     bash infrastructure/scripts/09-install-argocd.sh;
     kubectl apply -f deploy/argocd/applications/;
+    echo "";
+    echo "=== Argo Applications (expect several rows) ===";
+    kubectl get application -n argocd || true;
+    echo "";
+    echo "=== Ingress (empty until Apps Synced + ALB controller) ===";
+    kubectl get ingress -A || true;
+    echo "";
+    echo "If no rows above: wrong kubectl context, or apply failed. If Apps exist but no Ingress: kubectl describe application -n argocd image-captioning";
     echo "Argo CD installed and Applications applied."'

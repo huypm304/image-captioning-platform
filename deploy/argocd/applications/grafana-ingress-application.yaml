@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/huypm304/image-captioning-platform.git
-    targetRevision: HEAD
+    targetRevision: main
     path: deploy/argocd/manifests/grafana
   destination:
     server: https://kubernetes.default.svc
