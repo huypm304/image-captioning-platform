@@ -12,7 +12,7 @@ Argo CD **`Application`** manifests and **Kustomize** bases live here. Jenkins *
 
 ## Order of work
 
-1. Set **`repoURL`** / **`targetRevision`** in `applications/*.yaml` for your Git remote.
+1. Set **`repoURL`** / **`targetRevision`** in `applications/*.yaml` for your Git remote and **branch** (repo defaults to `feature/test` in this workspace — change to `main` after merge if needed).
 2. Jenkins credentials: `aws-creds-id`, `gitops-git-pat` (HTTPS `origin`).
 3. After EKS is up: run **`infrastructure/scripts/`** `02` → `05`, then **`09-install-argocd.sh`** (installs Argo with **`server.insecure=true`** for ALB TLS offload).
 4. Register: `kubectl apply -f deploy/argocd/applications/` (includes **argocd-ingress** for **https://argocd.minhhuy.me**).

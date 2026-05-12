@@ -8,7 +8,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/huypm304/image-captioning-platform.git
-    targetRevision: main
+    targetRevision: "feature/test"
     path: deploy/argocd/manifests/argocd-ingress
   destination:
     server: https://kubernetes.default.svc
