@@ -69,6 +69,16 @@ output "route53_nameservers" {
   value       = aws_route53_zone.main.name_servers
 }
 
+output "route53_zone_id" {
+  description = "Hosted zone ID for Route53 (wildcard DNS script / automation)"
+  value       = aws_route53_zone.main.zone_id
+}
+
+output "domain_name" {
+  description = "Root domain in Route53 (same as var.domain_name)"
+  value       = var.domain_name
+}
+
 output "acm_certificate_arn" {
   description = "ACM wildcard certificate ARN for ALB HTTPS"
   value       = aws_acm_certificate.wildcard.arn

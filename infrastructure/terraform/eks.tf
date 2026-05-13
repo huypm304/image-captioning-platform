@@ -14,12 +14,13 @@ module "eks" {
 
   enable_cluster_creator_admin_permissions = true
 
+  # Dev: 3 nodes reduces "Too many pods" / Pending (Argo controller, monitoring, app, ALB targets).
   eks_managed_node_groups = {
     default = {
       instance_types = ["t3.medium"]
       min_size       = 2
-      max_size       = 3
-      desired_size   = 2
+      max_size       = 4
+      desired_size   = 3
       ami_type       = "AL2_x86_64"
     }
   }

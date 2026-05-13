@@ -1,0 +1,9 @@
+name: Sync DNS and Argo refresh
+agent: laptop
+# Wildcard *.domain -> shared ALB (Route53) + hard refresh Application image-captioning. Idempotent.
+# Requires same agent as bootstrap: kubectl (EKS), AWS CLI with route53 + elbv2 + terraform state.
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    cd "${WORKSPACE}";
+    bash infrastructure/scripts/13-route53-wildcard-alias-to-shared-alb.sh'

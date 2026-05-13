@@ -75,6 +75,11 @@ pipeline {
                   cfg.steps.each { cmd -> sh cmd }
                 }
               }
+
+              def cfgDns = readYaml file: "${stagesDir}/sync-dns-argocd.yaml"
+              stage(cfgDns.name) {
+                cfgDns.steps.each { cmd -> sh cmd }
+              }
             }
           }
         }
