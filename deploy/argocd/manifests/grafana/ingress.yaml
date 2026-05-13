@@ -9,6 +9,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: image-caption
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
 spec:
   ingressClassName: alb

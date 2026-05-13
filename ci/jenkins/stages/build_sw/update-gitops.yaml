@@ -36,7 +36,12 @@ steps:
     git config user.name "Jenkins CI";
     git add deploy/helm/demo-app/values-argocd.yaml deploy/argocd/manifests/grafana/ingress.yaml deploy/argocd/manifests/argocd-ingress/ingress.yaml;
     if git diff --cached --quiet; then
-      echo "No GitOps changes to commit (Git already matches ECR tag ${TAG} / Terraform outputs).";
+      printf "%s\n" \
+        "No GitOps commit this run - expected and OK." \
+        "  Reason: after sed, staged files are identical to the last commit on this branch." \
+        "  Meaning: GitHub already has ECR tag ${TAG}, ACM ARN, Terraform outputs (nothing new to record)." \
+        "  Argo CD: still tracks branch tip; use Hard Refresh if the cluster lags behind Git (no new commit required)." \
+        "  To force a new commit anyway: change a comment in values-argocd.yaml or use git commit --allow-empty (usually unnecessary).";
     else
       git commit -m "ci(gitops): bump images to ${TAG} and sync ACM ARN";
       BR=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true);
