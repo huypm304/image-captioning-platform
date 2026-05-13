@@ -37,12 +37,22 @@ steps:
     git add deploy/helm/demo-app/values-argocd.yaml deploy/argocd/manifests/grafana/ingress.yaml deploy/argocd/manifests/argocd-ingress/ingress.yaml;
     if git diff --cached --quiet; then echo "No GitOps changes to commit"; exit 0; fi;
     git commit -m "ci(gitops): bump images to ${TAG} and sync ACM ARN";
-    BR=$(git rev-parse --abbrev-ref HEAD);
+    BR=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true);
+    if [ -n "${BR}" ] && [ "${BR}" != "HEAD" ]; then
+      :;
+    elif [ -n "${GITOPS_PUSH_BRANCH:-}" ]; then BR="${GITOPS_PUSH_BRANCH}";
+    elif [ -n "${BRANCH_NAME:-}" ]; then BR="${BRANCH_NAME}";
+    elif [ -n "${CHANGE_BRANCH:-}" ]; then BR="${CHANGE_BRANCH}";
+    elif [ -n "${GIT_BRANCH:-}" ]; then BR="${GIT_BRANCH#origin/}";
+    else
+      echo "ERROR: detached HEAD and no GITOPS_PUSH_BRANCH / BRANCH_NAME / GIT_BRANCH / CHANGE_BRANCH — cannot push. Set job parameter GITOPS_PUSH_BRANCH (e.g. feature/test)."; exit 1;
+    fi;
+    echo "Pushing GitOps commit to branch: ${BR}";
     if [ -n "${GIT_TOKEN:-}" ] && [ -n "${GIT_USERNAME:-}" ]; then
       REMOTE_URL=$(git remote get-url origin);
       if echo "${REMOTE_URL}" | grep -q "^https://"; then
         HOSTPATH=$(echo "${REMOTE_URL}" | sed -e "s|^https://||");
-        git push "https://${GIT_USERNAME}:${GIT_TOKEN}@${HOSTPATH}" "HEAD:${BR}";
+        git push "https://${GIT_USERNAME}:${GIT_TOKEN}@${HOSTPATH}" "HEAD:refs/heads/${BR}";
       else
         echo "Configure origin as https://github.com/org/repo.git for PAT push, or use SSH agent"; exit 1;
       fi;

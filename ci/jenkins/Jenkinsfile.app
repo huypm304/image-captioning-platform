@@ -12,6 +12,11 @@ pipeline {
       defaultValue: 'gitops-git-pat',
       description: 'Jenkins "Username with password" credential id for Git HTTPS push in update-gitops (username = GitHub user, password = PAT with repo scope). Create in Manage Jenkins → Credentials, or change this to your existing id.'
     )
+    string(
+      name: 'GITOPS_PUSH_BRANCH',
+      defaultValue: '',
+      description: 'Branch name to push update-gitops (e.g. feature/test). Use when the job uses detached HEAD and auto-detect fails. Leave empty to use BRANCH_NAME / GIT_BRANCH / CHANGE_BRANCH.'
+    )
   }
 
   environment {
@@ -42,6 +47,7 @@ pipeline {
           ]]) {
             node(params.AGENT_LABEL) {
               checkout scm
+              env.GITOPS_PUSH_BRANCH = (params.GITOPS_PUSH_BRANCH ?: '').trim()
 
               def accountId = sh(
                 returnStdout: true,
