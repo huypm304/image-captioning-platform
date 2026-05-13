@@ -31,8 +31,8 @@ except IndexError:
     _REPO_ROOT = _path.parent
 DEFAULT_ASSETS_DIR = os.environ.get("MODELS_DIR", str(_REPO_ROOT / "models"))
 
-def _resolve_asset_path(path_value: str, file_name: str) -> str:
-    """Resolve model assets robustly when sync layout varies (e.g. /models vs /models/patched_models)."""
+def _resolve_asset_path(path_value: str, file_name: str, alt_patterns: tuple[str, ...] = ()) -> str:
+    """Resolve model assets robustly when sync layout or filenames vary."""
     p = Path(path_value).expanduser()
     if p.exists():
         return str(p)
@@ -45,16 +45,19 @@ def _resolve_asset_path(path_value: str, file_name: str) -> str:
         if root not in search_roots:
             search_roots.append(root)
 
+    patterns = (file_name, *alt_patterns)
+
     for root in search_roots:
         if not root.exists():
             continue
-        direct = root / file_name
-        if direct.exists():
-            return str(direct)
+        for pattern in patterns:
+            direct = root / pattern
+            if direct.exists() and direct.is_file():
+                return str(direct)
 
-        for candidate in root.rglob(file_name):
-            if candidate.is_file():
-                return str(candidate)
+            for candidate in root.rglob(pattern):
+                if candidate.is_file():
+                    return str(candidate)
 
     return str(p)
 
@@ -62,14 +65,17 @@ def _resolve_asset_path(path_value: str, file_name: str) -> str:
 VIT_CAPTION_MODEL_PATH = _resolve_asset_path(
     os.getenv("VIT_CAPTION_MODEL_PATH", os.path.join(DEFAULT_ASSETS_DIR, "vit_attention_full_patched.keras")),
     "vit_attention_full_patched.keras",
+    alt_patterns=("*.keras", "*caption*.keras", "*.h5"),
 )
 VIT_PROJ_W_PATH = _resolve_asset_path(
     os.getenv("VIT_PROJ_W_PATH", os.path.join(DEFAULT_ASSETS_DIR, "vit_proj_W.npy")),
     "vit_proj_W.npy",
+    alt_patterns=("*proj*.npy", "*projection*.npy"),
 )
 VIT_METADATA_PATH = _resolve_asset_path(
     os.getenv("VIT_METADATA_PATH", os.path.join(DEFAULT_ASSETS_DIR, "v2_metadata.pkl")),
     "v2_metadata.pkl",
+    alt_patterns=("*metadata*.pkl", "*.pkl"),
 )
 
 
