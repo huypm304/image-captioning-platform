@@ -7,6 +7,16 @@ backend:
   image:
     repository: "296725355870.dkr.ecr.ap-southeast-1.amazonaws.com/image-caption-dev-app"
     tag: "14"
+    
+  env:
+    - name: MODELS_DIR
+      value: "/models"
+    - name: VIT_CAPTION_MODEL_PATH
+      value: "/models/vit_attention_full_patched.keras"
+    - name: VIT_PROJ_W_PATH
+      value: "/models/vit_proj_W.npy"
+    - name: VIT_METADATA_PATH
+      value: "/models/v2_metadata.pkl"
 
 frontend:
   image:
