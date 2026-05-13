@@ -15,7 +15,7 @@ pipeline {
     string(
       name: 'GITOPS_PUSH_BRANCH',
       defaultValue: '',
-      description: 'Branch name to push update-gitops (e.g. feature/test). Use when the job uses detached HEAD and auto-detect fails. Leave empty to use BRANCH_NAME / GIT_BRANCH / CHANGE_BRANCH.'
+      description: 'Branch to push update-gitops commits (e.g. feature/test). Leave empty: use branch from checkout scm (GIT_BRANCH), else update-gitops infers origin branch containing HEAD.'
     )
   }
 
@@ -46,8 +46,16 @@ pipeline {
             credentialsId: 'aws-creds-id'
           ]]) {
             node(params.AGENT_LABEL) {
-              checkout scm
-              env.GITOPS_PUSH_BRANCH = (params.GITOPS_PUSH_BRANCH ?: '').trim()
+              def scmInfo = checkout scm
+              def paramBranch = (params.GITOPS_PUSH_BRANCH ?: '').trim()
+              if (paramBranch) {
+                env.GITOPS_PUSH_BRANCH = paramBranch
+              } else if (scmInfo?.GIT_BRANCH) {
+                env.GITOPS_PUSH_BRANCH = scmInfo.GIT_BRANCH.replaceFirst('^origin/', '')
+              } else {
+                env.GITOPS_PUSH_BRANCH = ''
+              }
+              echo "GITOPS_PUSH_BRANCH=${env.GITOPS_PUSH_BRANCH} (param empty → from checkout scm when available)"
 
               def accountId = sh(
                 returnStdout: true,

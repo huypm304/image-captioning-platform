@@ -46,15 +46,25 @@ steps:
         "  To force a new commit anyway: change a comment in values-argocd.yaml or use git commit --allow-empty (usually unnecessary).";
     else
       git commit -m "ci(gitops): bump images to ${TAG} and sync ACM ARN";
-      BR=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true);
-      if [ -n "${BR}" ] && [ "${BR}" != "HEAD" ]; then
-        :;
-      elif [ -n "${GITOPS_PUSH_BRANCH:-}" ]; then BR="${GITOPS_PUSH_BRANCH}";
-      elif [ -n "${BRANCH_NAME:-}" ]; then BR="${BRANCH_NAME}";
-      elif [ -n "${CHANGE_BRANCH:-}" ]; then BR="${CHANGE_BRANCH}";
-      elif [ -n "${GIT_BRANCH:-}" ]; then BR="${GIT_BRANCH#origin/}";
-      else
-        echo "ERROR: detached HEAD and no GITOPS_PUSH_BRANCH / BRANCH_NAME / GIT_BRANCH / CHANGE_BRANCH — cannot push. Set job parameter GITOPS_PUSH_BRANCH (e.g. feature/test)."; exit 1;
+      BR="";
+      if [ -n "${GITOPS_PUSH_BRANCH:-}" ]; then BR="${GITOPS_PUSH_BRANCH}"; fi;
+      if [ -z "${BR}" ] && [ -n "${BRANCH_NAME:-}" ]; then BR="${BRANCH_NAME}"; fi;
+      if [ -z "${BR}" ] && [ -n "${CHANGE_BRANCH:-}" ]; then BR="${CHANGE_BRANCH}"; fi;
+      if [ -z "${BR}" ] && [ -n "${GIT_BRANCH:-}" ]; then BR="${GIT_BRANCH#origin/}"; fi;
+      if [ -z "${BR}" ]; then
+        TR=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true);
+        if [ -n "${TR}" ] && [ "${TR}" != "HEAD" ]; then BR="${TR}"; fi;
+      fi;
+      if [ -z "${BR}" ]; then
+        BR=$(git branch -r --contains "$(git rev-parse HEAD 2>/dev/null)" 2>/dev/null \
+          | grep -E "^[[:space:]]*origin/" | grep -v "origin/HEAD" | head -1 \
+          | sed "s/^[[:space:]]*origin\///" | tr -d "[:space:]");
+      fi;
+      if [ -z "${BR}" ]; then
+        BR=$(git remote show origin 2>/dev/null | sed -n "/HEAD branch/s/.*: //p" | head -1 | tr -d "[:space:]");
+      fi;
+      if [ -z "${BR}" ] || [ "${BR}" = "HEAD" ]; then
+        echo "ERROR: cannot resolve push branch (detached HEAD and no GITOPS_PUSH_BRANCH / BRANCH_NAME / GIT_BRANCH / CHANGE_BRANCH, and could not infer from origin). Set Jenkins job parameter GITOPS_PUSH_BRANCH (e.g. main or feature/test)."; exit 1;
       fi;
       echo "Pushing GitOps commit to branch: ${BR}";
       if [ -n "${GIT_TOKEN:-}" ] && [ -n "${GIT_USERNAME:-}" ]; then
