@@ -21,6 +21,7 @@ steps:
       -e "s|__BACKEND_IMAGE_REPO__|${BE_REPO}|g" \
       -e "s|__FRONTEND_IMAGE_REPO__|${FE_REPO}|g" \
       -e "s|__IMAGE_TAG__|${TAG}|g" \
+      -e "s|tag: \"[0-9][0-9]*\"|tag: \"${TAG}\"|g" \
       -e "s|__DEMO_APP_ROLE_ARN__|${ROLE_ARN}|g" \
       -e "s|__MODELS_BUCKET__|${BUCKET}|g" \
       -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
