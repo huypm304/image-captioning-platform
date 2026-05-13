@@ -39,7 +39,7 @@ serviceAccount:
 models:
   s3Bucket: ""
   s3Prefix: "patched_models/"
-  mountPath: "/models"
+  mountPath: "/app/models"
 
 ingress:
   enabled: true

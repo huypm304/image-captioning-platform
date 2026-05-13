@@ -126,19 +126,13 @@ class CaptionMetadata:
     max_len: int
 
 
-def _normalize_wordtoix(raw: dict) -> dict[str, int]:
-    out: dict[str, int] = {}
-    for k, v in raw.items():
-        sk = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
-        out[sk] = int(v) if isinstance(v, numbers.Integral) else int(np.asarray(v).item())
-    return out
-
-
 def _normalize_ixtoword(raw: dict) -> dict[int, str]:
     """Pickles often store JSON-style string keys ("0","1",…); decoding needs int keys."""
     out: dict[int, str] = {}
     for k, v in raw.items():
         if isinstance(k, (int, np.integer)):
+            nk = int(k)
+        elif isinstance(k, (float, np.floating)) and float(k).is_integer():
             nk = int(k)
         elif isinstance(k, str) and (k.isdigit() or (k.startswith("-") and k[1:].isdigit())):
             nk = int(k)
@@ -147,6 +141,25 @@ def _normalize_ixtoword(raw: dict) -> dict[int, str]:
         else:
             continue
         out[nk] = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
+    return out
+
+
+def _as_word_index(v: object) -> int:
+    if isinstance(v, numbers.Integral):
+        return int(v)
+    if isinstance(v, (float, np.floating)) and float(v).is_integer():
+        return int(v)
+    if isinstance(v, (str, bytes)):
+        s = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else v
+        return int(float(s)) if "." in s else int(s)
+    return int(np.asarray(v).reshape(-1)[0].item())
+
+
+def _normalize_wordtoix(raw: dict) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for k, v in raw.items():
+        sk = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
+        out[sk] = _as_word_index(v)
     return out
 
 
@@ -172,10 +185,22 @@ def load_metadata(path: str = VIT_METADATA_PATH) -> CaptionMetadata:
 # Keras predict (Keras 3 / multi-input checkpoints)
 # =============================================================================
 def _predict_caption_step(model: object, photo: np.ndarray, seq_batch: np.ndarray) -> np.ndarray:
-    """Single forward pass for caption decoder. Avoids KeyError(2) on some Keras 3 multi-input graphs."""
-    names = getattr(model, "input_names", None)
-    inputs = getattr(model, "inputs", None)
+    """Single decoder forward pass. Tries dict feeds, swapped inputs, extra zero inputs, list, and __call__."""
+    names = list(getattr(model, "input_names", None) or [])
+    inputs = getattr(model, "inputs", None) or []
     batch = int(np.shape(photo)[0])
+    dict_errors: list[str] = []
+
+    def _np_dtype_for_spec(spec: object):
+        dt = getattr(spec, "dtype", None)
+        name = (getattr(dt, "name", None) or str(dt) or "").lower()
+        if "int64" in name:
+            return np.int64
+        if "int32" in name:
+            return np.int32
+        if "float64" in name:
+            return np.float64
+        return np.float32
 
     def _zeros_for_input(idx: int) -> np.ndarray:
         spec = inputs[idx]
@@ -187,25 +212,56 @@ def _predict_caption_step(model: object, photo: np.ndarray, seq_batch: np.ndarra
                 dims.append(1)
             else:
                 dims.append(int(dim))
-        return np.zeros(dims, dtype=np.float32)
+        npdt = _np_dtype_for_spec(spec)
+        return np.zeros(dims, dtype=npdt)
 
-    out = None
-    if names and len(names) >= 2:
-        feed: dict[str, np.ndarray] = {names[0]: photo, names[1]: seq_batch}
+    def _squeeze_batch(out: object) -> np.ndarray:
+        if hasattr(out, "numpy") and callable(out.numpy):
+            out = out.numpy()
+        out_arr = np.asarray(out)
+        if out_arr.ndim >= 2 and out_arr.shape[0] == 1:
+            return out_arr[0]
+        return out_arr
+
+    def _extras() -> dict[str, np.ndarray]:
+        feedx: dict[str, np.ndarray] = {}
         if len(names) > 2 and inputs and len(inputs) >= len(names):
             for idx in range(2, len(names)):
-                feed[names[idx]] = _zeros_for_input(idx)
-        try:
-            out = model.predict(feed, verbose=0)
-        except (KeyError, TypeError, ValueError):
-            out = None
-    if out is None:
-        out = model.predict([photo, seq_batch], verbose=0)
+                feedx[names[idx]] = _zeros_for_input(idx)
+        return feedx
 
-    out_arr = np.asarray(out)
-    if out_arr.ndim >= 2 and out_arr.shape[0] == 1:
-        out_arr = out_arr[0]
-    return out_arr
+    if len(names) >= 2 and inputs and len(inputs) >= 2:
+        for a, b in ((photo, seq_batch), (seq_batch, photo)):
+            base = {names[0]: a, names[1]: b}
+            feed = {**base, **_extras()}
+            try:
+                return _squeeze_batch(model.predict(feed, verbose=0))
+            except Exception as e:
+                dict_errors.append(f"predict({list(feed.keys())} order=({a is photo})): {type(e).__name__}: {e!r}")
+                continue
+
+    err_list: Exception | None = None
+    try:
+        return _squeeze_batch(model.predict([photo, seq_batch], verbose=0))
+    except Exception as e:
+        err_list = e
+
+    err_call: Exception | None = None
+    try:
+        y = model((photo, seq_batch), training=False)
+        return _squeeze_batch(y)
+    except Exception as e:
+        err_call = e
+
+    try:
+        y = model([photo, seq_batch], training=False)
+        return _squeeze_batch(y)
+    except Exception as e_call2:
+        hint = "; ".join(dict_errors[-6:]) if dict_errors else "(no dict attempts)"
+        raise RuntimeError(
+            f"Caption model forward failed (input_names={names!r}). Dict: {hint}. "
+            f"List predict: {err_list!r}. __call__(tuple): {err_call!r}. __call__(list): {e_call2!r}."
+        ) from e_call2
 
 
 # =============================================================================
