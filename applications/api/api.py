@@ -31,9 +31,15 @@ app.add_middleware(
 )
 
 instrumentator = Instrumentator(
-    excluded_handlers=["/health", "/metrics"],
+    excluded_handlers=["/health", "/metrics", "/"],
 )
 instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
+
+@app.get("/")
+def root():
+    """ALB / generic probes often hit `/` on the API host; avoid noisy 404s."""
+    return {"service": "image-caption-api", "docs": "/docs", "health": "/health"}
 
 
 @app.get("/health")
@@ -70,8 +76,11 @@ async def predict(
         caption_text = generate_caption(img, strategy=strategy, beam_width=beam_width)
         duration = time.perf_counter() - start
     except Exception as e:
-        logger.error("inference_error", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
+        logger.exception(
+            "inference_error",
+            extra={"error": str(e), "error_type": type(e).__name__, "error_repr": repr(e)},
+        )
+        raise HTTPException(status_code=500, detail=f"Inference error: {type(e).__name__}: {str(e)}")
 
     logger.info(
         "inference_complete",

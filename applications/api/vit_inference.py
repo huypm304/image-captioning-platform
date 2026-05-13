@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numbers
 import os
 import pickle
 from dataclasses import dataclass
@@ -125,16 +126,86 @@ class CaptionMetadata:
     max_len: int
 
 
+def _normalize_wordtoix(raw: dict) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for k, v in raw.items():
+        sk = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
+        out[sk] = int(v) if isinstance(v, numbers.Integral) else int(np.asarray(v).item())
+    return out
+
+
+def _normalize_ixtoword(raw: dict) -> dict[int, str]:
+    """Pickles often store JSON-style string keys ("0","1",…); decoding needs int keys."""
+    out: dict[int, str] = {}
+    for k, v in raw.items():
+        if isinstance(k, (int, np.integer)):
+            nk = int(k)
+        elif isinstance(k, str) and (k.isdigit() or (k.startswith("-") and k[1:].isdigit())):
+            nk = int(k)
+        elif isinstance(k, bytes) and k.decode().isdigit():
+            nk = int(k.decode())
+        else:
+            continue
+        out[nk] = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
+    return out
+
+
 def load_metadata(path: str = VIT_METADATA_PATH) -> CaptionMetadata:
     if not path or not os.path.exists(path):
         raise FileNotFoundError(f"Missing metadata file: {path}")
     meta = pickle.load(open(path, "rb"))
-    w2i = meta.get("wordtoix")
-    i2w = meta.get("ixtoword")
+    w2i_raw = meta.get("wordtoix")
+    i2w_raw = meta.get("ixtoword")
     ml = meta.get("max_len", meta.get("max_length"))
-    if not isinstance(w2i, dict) or not isinstance(i2w, dict) or not isinstance(ml, int):
+    if not isinstance(w2i_raw, dict) or not isinstance(i2w_raw, dict) or ml is None:
         raise ValueError("metadata must contain wordtoix, ixtoword, max_len/max_length")
-    return CaptionMetadata(wordtoix=w2i, ixtoword=i2w, max_len=ml)
+    if not isinstance(ml, numbers.Integral):
+        raise ValueError("max_len / max_length must be an integer")
+    w2i = _normalize_wordtoix(w2i_raw)
+    i2w = _normalize_ixtoword(i2w_raw)
+    if "startseq" not in w2i or "endseq" not in w2i:
+        raise ValueError('metadata wordtoix must contain "startseq" and "endseq" tokens')
+    return CaptionMetadata(wordtoix=w2i, ixtoword=i2w, max_len=int(ml))
+
+
+# =============================================================================
+# Keras predict (Keras 3 / multi-input checkpoints)
+# =============================================================================
+def _predict_caption_step(model: object, photo: np.ndarray, seq_batch: np.ndarray) -> np.ndarray:
+    """Single forward pass for caption decoder. Avoids KeyError(2) on some Keras 3 multi-input graphs."""
+    names = getattr(model, "input_names", None)
+    inputs = getattr(model, "inputs", None)
+    batch = int(np.shape(photo)[0])
+
+    def _zeros_for_input(idx: int) -> np.ndarray:
+        spec = inputs[idx]
+        dims: list[int] = []
+        for d_i, dim in enumerate(spec.shape):
+            if d_i == 0:
+                dims.append(batch)
+            elif dim is None:
+                dims.append(1)
+            else:
+                dims.append(int(dim))
+        return np.zeros(dims, dtype=np.float32)
+
+    out = None
+    if names and len(names) >= 2:
+        feed: dict[str, np.ndarray] = {names[0]: photo, names[1]: seq_batch}
+        if len(names) > 2 and inputs and len(inputs) >= len(names):
+            for idx in range(2, len(names)):
+                feed[names[idx]] = _zeros_for_input(idx)
+        try:
+            out = model.predict(feed, verbose=0)
+        except (KeyError, TypeError, ValueError):
+            out = None
+    if out is None:
+        out = model.predict([photo, seq_batch], verbose=0)
+
+    out_arr = np.asarray(out)
+    if out_arr.ndim >= 2 and out_arr.shape[0] == 1:
+        out_arr = out_arr[0]
+    return out_arr
 
 
 # =============================================================================
@@ -145,7 +216,7 @@ def greedy_search(model, photo, wordtoix, ixtoword, max_length: int) -> str:
     for _ in range(max_length):
         seq = [wordtoix[w] for w in in_text.split() if w in wordtoix]
         seq = pad_sequences([seq], maxlen=max_length, padding="post")
-        yhat = model.predict([photo, seq], verbose=0)
+        yhat = _predict_caption_step(model, photo, seq)
         yhat = int(np.argmax(yhat))
         word = ixtoword.get(yhat, "")
         if not word:
@@ -169,7 +240,7 @@ def beam_search(model, photo, wordtoix, ixtoword, max_length: int, beam_width: i
                 continue
 
             padded = pad_sequences([seq], maxlen=max_length, padding="post")
-            yhat = model.predict([photo, padded], verbose=0)[0]
+            yhat = _predict_caption_step(model, photo, padded)
             top_k = np.argsort(yhat)[-beam_width:]
             for word_idx in top_k:
                 new_score = float(score) - float(np.log(yhat[word_idx] + 1e-10))
@@ -180,7 +251,11 @@ def beam_search(model, photo, wordtoix, ixtoword, max_length: int, beam_width: i
             break
 
     best_seq = sequences[0][0]
-    words = [ixtoword.get(i, "") for i in best_seq if i not in [start, end]]
+    words = [
+        ixtoword.get(int(i), "")
+        for i in best_seq
+        if int(i) not in (int(start), int(end))
+    ]
     return " ".join(words)
 
 
