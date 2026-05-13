@@ -5,19 +5,19 @@
 
 backend:
   image:
-    repository: "__BACKEND_IMAGE_REPO__"
-    tag: "__IMAGE_TAG__"
+    repository: "296725355870.dkr.ecr.ap-southeast-1.amazonaws.com/image-caption-dev-app"
+    tag: "13"
 
 frontend:
   image:
-    repository: "__FRONTEND_IMAGE_REPO__"
-    tag: "__IMAGE_TAG__"
+    repository: "296725355870.dkr.ecr.ap-southeast-1.amazonaws.com/image-caption-dev-frontend"
+    tag: "13"
 
 serviceAccount:
-  roleArn: "__DEMO_APP_ROLE_ARN__"
+  roleArn: "arn:aws:iam::296725355870:role/image-caption-dev-demo-app"
 
 models:
-  s3Bucket: "__MODELS_BUCKET__"
+  s3Bucket: "image-caption-dev-models-296725355870"
 
 ingress:
-  certificateArn: "__ACM_CERTIFICATE_ARN__"
+  certificateArn: "arn:aws:acm:ap-southeast-1:296725355870:certificate/72fd444f-c84d-4964-8a2c-d8b0fc391514"
