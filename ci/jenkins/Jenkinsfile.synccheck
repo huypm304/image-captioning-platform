@@ -46,7 +46,8 @@ pipeline {
             node(params.AGENT_LABEL) {
               checkout scm
               env.APP_NAME = params.APP_NAME
-              echo "APP_NAME=${env.APP_NAME} (must match Argo Application metadata.name)"
+              env.HELM_RELEASE_NAME = params.APP_NAME
+              echo "APP_NAME=${env.APP_NAME} (Argo app = Helm release; rollout/smoke use HELM_RELEASE_NAME)"
               if (skipArgo) {
                 echo 'SKIP_ARGOCD_CLI=true — skipping Argo CD CLI (add credential argocd-creds and uncheck to enable).'
               }

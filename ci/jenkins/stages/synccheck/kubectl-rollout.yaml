@@ -1,11 +1,14 @@
 name: kubectl Rollout Status
 agent: laptop
+# Must match Argo CD Application name (Helm release): deploy/argocd/applications/demo-app-application.yaml -> image-captioning
 steps:
   - >-
     bash -lc 'set -euo pipefail;
-    echo "=== Backend rollout ===";
-    kubectl rollout status deployment/demo-app -n default --timeout=120s;
-    echo "=== Frontend rollout ===";
-    kubectl rollout status deployment/demo-app-frontend -n default --timeout=120s;
+    REL="${HELM_RELEASE_NAME:-image-captioning}";
+    echo "=== Backend rollout (${REL}-backend) ===";
+    kubectl rollout status "deployment/${REL}-backend" -n default --timeout=120s;
+    echo "=== Frontend rollout (${REL}-frontend) ===";
+    kubectl rollout status "deployment/${REL}-frontend" -n default --timeout=120s;
     echo "All rollouts complete.";
-    kubectl get pods -n default -l "app.kubernetes.io/instance=demo-app"'
+    kubectl get pods -n default -l "app.kubernetes.io/name=${REL}-backend" -o wide || true;
+    kubectl get pods -n default -l "app.kubernetes.io/name=${REL}-frontend" -o wide || true'

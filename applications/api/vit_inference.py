@@ -20,7 +20,13 @@ from transformers import AutoImageProcessor, ViTModel
 # Paths (override via environment variables)
 # =============================================================================
 HERE = os.path.dirname(os.path.abspath(__file__))
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_path = Path(__file__).resolve()
+# Repo: .../applications/api/vit_inference.py → parents[2] is repo root.
+# Container: /app/vit_inference.py → only parents[0..1]; parents[2] raises IndexError.
+try:
+    _REPO_ROOT = _path.parents[2]
+except IndexError:
+    _REPO_ROOT = _path.parent
 DEFAULT_ASSETS_DIR = os.environ.get("MODELS_DIR", str(_REPO_ROOT / "models"))
 
 VIT_CAPTION_MODEL_PATH = os.getenv(

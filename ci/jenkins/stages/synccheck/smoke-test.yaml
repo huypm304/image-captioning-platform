@@ -1,18 +1,21 @@
 name: Smoke Test
 agent: laptop
+# Ingress name = ${REL}-ingress (Helm). ALB routes by Host; backend /health is on api host rule.
 steps:
   - >-
     bash -lc 'set -euo pipefail;
-    echo "=== Resolving ALB endpoint ===";
-    ALB_DNS=$(kubectl get ingress -n default -l "app.kubernetes.io/instance=demo-app" \
-      -o jsonpath="{.items[0].status.loadBalancer.ingress[0].hostname}" 2>/dev/null || true);
+    REL="${HELM_RELEASE_NAME:-image-captioning}";
+    API_HOST="${SMOKE_TEST_API_HOST:-api.minhhuy.me}";
+    echo "=== Resolving ALB endpoint (${REL}-ingress) ===";
+    ALB_DNS=$(kubectl get ingress "${REL}-ingress" -n default \
+      -o jsonpath="{.status.loadBalancer.ingress[0].hostname}" 2>/dev/null || true);
     if [ -z "${ALB_DNS}" ]; then
-      echo "No ALB hostname found — ingress may not be ready yet"; exit 1;
+      echo "No ALB hostname on ingress/${REL}-ingress — ingress may not be ready yet"; exit 1;
     fi;
-    echo "ALB: ${ALB_DNS}";
+    echo "ALB: ${ALB_DNS}  (Host: ${API_HOST})";
     echo "=== GET /health ===";
     for i in 1 2 3 4 5; do
-      STATUS=$(curl -sf --max-time 10 "http://${ALB_DNS}/health" -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000");
+      STATUS=$(curl -sf --max-time 10 -H "Host: ${API_HOST}" "http://${ALB_DNS}/health" -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000");
       echo "Attempt ${i}: HTTP ${STATUS}";
       if [ "${STATUS}" = "200" ]; then echo "Smoke test PASSED"; exit 0; fi;
       sleep 15;
