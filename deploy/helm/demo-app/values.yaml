@@ -39,7 +39,8 @@ serviceAccount:
 models:
   s3Bucket: ""
   s3Prefix: "patched_models/"
-  mountPath: "/app/models"
+  # Shared emptyDir mount + initContainer sync from S3; must match VIT_* paths in backend-deployment.
+  mountPath: "/models"
 
 ingress:
   enabled: true

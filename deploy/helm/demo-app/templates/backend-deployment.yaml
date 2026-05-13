@@ -46,6 +46,8 @@ spec:
               value: {{ .Values.env.AWS_REGION | quote }}
             - name: AWS_DEFAULT_REGION
               value: {{ .Values.env.AWS_REGION | quote }}
+            - name: MODELS_DIR
+              value: "{{ .Values.models.mountPath }}"
             - name: VIT_CAPTION_MODEL_PATH
               value: "{{ .Values.models.mountPath }}/vit_attention_full_patched.keras"
             - name: VIT_PROJ_W_PATH
