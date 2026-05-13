@@ -78,10 +78,6 @@ spec:
             - name: models
               mountPath: {{ .Values.models.mountPath }}
               readOnly: true
-            - name: hf-cache
-              mountPath: /hf-cache
       volumes:
         - name: models
-          emptyDir: {}
-        - name: hf-cache
           emptyDir: {}
