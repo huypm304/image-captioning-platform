@@ -31,18 +31,67 @@ except IndexError:
     _REPO_ROOT = _path.parent
 DEFAULT_ASSETS_DIR = os.environ.get("MODELS_DIR", str(_REPO_ROOT / "models"))
 
-VIT_CAPTION_MODEL_PATH = os.getenv(
-    "VIT_CAPTION_MODEL_PATH",
-    os.path.join(DEFAULT_ASSETS_DIR, "vit_attention_full_patched.keras"),
+def _resolve_asset_path(path_value: str, file_name: str) -> str:
+    """Resolve model assets robustly when sync layout varies (e.g. /models vs /models/patched_models)."""
+    p = Path(path_value).expanduser()
+    if p.exists():
+        return str(p)
+
+    search_roots: list[Path] = []
+    for raw in (os.environ.get("MODELS_DIR", ""), DEFAULT_ASSETS_DIR, "/models"):
+        if not raw:
+            continue
+        root = Path(raw).expanduser()
+        if root not in search_roots:
+            search_roots.append(root)
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        direct = root / file_name
+        if direct.exists():
+            return str(direct)
+
+        for candidate in root.rglob(file_name):
+            if candidate.is_file():
+                return str(candidate)
+
+    return str(p)
+
+
+VIT_CAPTION_MODEL_PATH = _resolve_asset_path(
+    os.getenv("VIT_CAPTION_MODEL_PATH", os.path.join(DEFAULT_ASSETS_DIR, "vit_attention_full_patched.keras")),
+    "vit_attention_full_patched.keras",
 )
-VIT_PROJ_W_PATH = os.getenv(
-    "VIT_PROJ_W_PATH",
-    os.path.join(DEFAULT_ASSETS_DIR, "vit_proj_W.npy"),
+VIT_PROJ_W_PATH = _resolve_asset_path(
+    os.getenv("VIT_PROJ_W_PATH", os.path.join(DEFAULT_ASSETS_DIR, "vit_proj_W.npy")),
+    "vit_proj_W.npy",
 )
-VIT_METADATA_PATH = os.getenv(
-    "VIT_METADATA_PATH",
-    os.path.join(DEFAULT_ASSETS_DIR, "v2_metadata.pkl"),
+VIT_METADATA_PATH = _resolve_asset_path(
+    os.getenv("VIT_METADATA_PATH", os.path.join(DEFAULT_ASSETS_DIR, "v2_metadata.pkl")),
+    "v2_metadata.pkl",
 )
+
+
+def _asset_hint(search_name: str) -> str:
+    roots = [Path(p) for p in {os.environ.get("MODELS_DIR", ""), DEFAULT_ASSETS_DIR, "/models"} if p]
+    found: list[str] = []
+    for root in roots:
+        if not root.exists():
+            continue
+        try:
+            for candidate in root.rglob(search_name):
+                if candidate.is_file():
+                    found.append(str(candidate))
+                    if len(found) >= 5:
+                        break
+        except Exception:
+            continue
+        if len(found) >= 5:
+            break
+    if found:
+        return f" Found candidates: {found}."
+    return f" Checked roots: {[str(r) for r in roots]}."
 
 
 # =============================================================================
@@ -169,7 +218,7 @@ def _normalize_wordtoix(raw: dict) -> dict[str, int]:
 
 def load_metadata(path: str = VIT_METADATA_PATH) -> CaptionMetadata:
     if not path or not os.path.exists(path):
-        raise FileNotFoundError(f"Missing metadata file: {path}")
+        raise FileNotFoundError(f"Missing metadata file: {path}.{_asset_hint('v2_metadata.pkl')}")
     meta = pickle.load(open(path, "rb"))
     w2i_raw = meta.get("wordtoix")
     i2w_raw = meta.get("ixtoword")
@@ -396,7 +445,7 @@ def load_caption_model(path: str = VIT_CAPTION_MODEL_PATH):
     if not p:
         raise ValueError("Empty model path")
     if not os.path.exists(p):
-        raise FileNotFoundError(f"Missing model file: {p}")
+        raise FileNotFoundError(f"Missing model file: {p}.{_asset_hint('vit_attention_full_patched.keras')}")
     if p not in _MODEL_CACHE:
         try:
             _MODEL_CACHE[p] = keras.models.load_model(
