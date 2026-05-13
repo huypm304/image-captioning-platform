@@ -1,4 +1,5 @@
-# Grafana ALB ingress (same ALB group as demo-app). Certificate ARN is updated by Jenkins gitops stage.
+# Grafana ALB ingress (same ALB group as demo-app / Argo CD). TLS at ALB; ACM from Jenkins gitops / 12-fill.
+# Same :443 rule issue as Argo CD: this Ingress must declare HTTPS + cert so https://grafana.minhhuy.me gets a listener rule.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -13,6 +14,9 @@ metadata:
     alb.ingress.kubernetes.io/certificate-arn: __ACM_CERTIFICATE_ARN__
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
 spec:
   ingressClassName: alb
   rules:
