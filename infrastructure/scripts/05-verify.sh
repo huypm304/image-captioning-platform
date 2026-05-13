@@ -27,6 +27,9 @@ echo ""
 echo "--- Ingress ---"
 kubectl get ingress -A
 echo ""
+echo "If ADDRESS is empty for >5m: kubectl describe ingress -n default <demo-ingress-name>; kubectl logs -n kube-system deploy/aws-load-balancer-controller --tail=40"
+echo "If ADDRESS is set but browser fails: ensure DNS (e.g. *.minhhuy.me) points to that ALB; run ./infrastructure/scripts/11-patch-ingress-acm-from-terraform.sh after first sync if HTTPS/cert missing."
+echo ""
 
 echo "--- All Pods Summary ---"
 kubectl get pods -A --field-selector=status.phase!=Running 2>/dev/null | head -20 || echo "All pods are Running."

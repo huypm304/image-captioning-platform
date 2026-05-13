@@ -16,3 +16,7 @@ models/*
 
 # CI local venv
 .ci-venv/
+
+# Accidental local Helm / debug output
+.helm-*.txt
+.helm-out.yaml

@@ -98,10 +98,10 @@ fi
 patch_ingress() {
   local ns="$1" name="$2"
   if kubectl get ingress "${name}" -n "${ns}" &>/dev/null; then
-    echo "Patching ${ns}/${name} (HTTPS + ACM) ..."
+    echo "Patching ${ns}/${name} (HTTP+HTTPS + ACM + redirect) ..."
     kubectl annotate ingress "${name}" -n "${ns}" \
       "alb.ingress.kubernetes.io/certificate-arn=${CERT_ARN}" \
-      'alb.ingress.kubernetes.io/listen-ports=[{"HTTPS":443}]' \
+      'alb.ingress.kubernetes.io/listen-ports=[{"HTTP":80},{"HTTPS":443}]' \
       'alb.ingress.kubernetes.io/ssl-redirect=443' \
       --overwrite
   else
@@ -113,4 +113,7 @@ patch_ingress argocd argocd-server-ingress
 patch_ingress monitoring grafana-ingress
 
 echo "Done. Watch: kubectl describe ingress -n argocd argocd-server-ingress | tail -20"
+echo "Verify ALB annotations (do not parse raw JSON with tr/sed on commas):"
+echo "  kubectl get ingress -n argocd argocd-server-ingress -o jsonpath='{.metadata.annotations.alb\\.ingress\\.kubernetes\\.io/listen-ports}{\"\\n\"}'"
+echo "Probe UI (follow redirects): curl -skL -o /dev/null -w '%{http_code}\\n' -H 'Host: argocd.minhhuy.me' 'https://<ALB_DNS>/'"
 echo "DNS: argocd.minhhuy.me must resolve to the same ALB as app (CNAME/A to ALB DNS from kubectl get ingress -A)."
