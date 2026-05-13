@@ -23,6 +23,18 @@ handler.setFormatter(
 )
 logger.addHandler(handler)
 
+# Preload model + metadata at startup to avoid slow first request
+_startup_error = None
+try:
+    logger.info("startup_preload_begin")
+    from vit_inference import load_caption_model, load_metadata, VIT_CAPTION_MODEL_PATH, VIT_METADATA_PATH
+    _caption_model = load_caption_model()
+    _metadata = load_metadata()
+    logger.info("startup_preload_complete", extra={"model_path": VIT_CAPTION_MODEL_PATH, "metadata_path": VIT_METADATA_PATH})
+except Exception as e:
+    _startup_error = e
+    logger.error("startup_preload_failed", extra={"error": str(e), "error_type": type(e).__name__})
+
 app = FastAPI(title="Image Captioning API (ViT)")
 
 app.add_middleware(
@@ -46,7 +58,10 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    if _startup_error:
+        logger.warning("health_check_startup_failed")
+        raise HTTPException(status_code=503, detail=f"Backend not ready: {type(_startup_error).__name__}: {str(_startup_error)}")
+    return {"status": "ok", "models_ready": True}
 
 
 @app.post("/predict")
