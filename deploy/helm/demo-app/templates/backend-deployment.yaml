@@ -58,6 +58,8 @@ spec:
               value: /hf-cache
             - name: TRANSFORMERS_CACHE
               value: /hf-cache
+            - name: STRICT_HEALTH_CHECK
+              value: "true"
           readinessProbe:
             httpGet:
               path: /health

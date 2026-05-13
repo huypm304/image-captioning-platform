@@ -23,6 +23,13 @@ handler.setFormatter(
 )
 logger.addHandler(handler)
 
+
+def _truthy_env(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).strip().lower() in ("1", "true", "yes", "on")
+
+
+STRICT_HEALTH_CHECK = _truthy_env("STRICT_HEALTH_CHECK", "false")
+
 # Preload model + metadata at startup to avoid slow first request
 _startup_error = None
 try:
@@ -58,10 +65,14 @@ def root():
 
 @app.get("/health")
 def health():
-    if _startup_error:
+    if _startup_error and STRICT_HEALTH_CHECK:
         logger.warning("health_check_startup_failed")
         raise HTTPException(status_code=503, detail=f"Backend not ready: {type(_startup_error).__name__}: {str(_startup_error)}")
-    return {"status": "ok", "models_ready": True}
+    return {
+        "status": "ok",
+        "models_ready": _startup_error is None,
+        "strict_health_check": STRICT_HEALTH_CHECK,
+    }
 
 
 @app.post("/predict")
