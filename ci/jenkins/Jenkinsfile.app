@@ -32,9 +32,6 @@ pipeline {
     disableConcurrentBuilds()
   }
 
-  triggers {
-  }
-
   stages {
     stage('CI') {
       steps {

@@ -25,9 +25,6 @@ pipeline {
     disableConcurrentBuilds()
   }
 
-  triggers {
-  }
-
   stages {
     stage('Terraform Infrastructure Management') {
       steps {
