@@ -6,7 +6,7 @@
 backend:
   image:
     repository: "296725355870.dkr.ecr.ap-southeast-1.amazonaws.com/image-caption-dev-app"
-    tag: "48"
+    tag: "49"
     
   env:
     - name: MODELS_DIR
@@ -21,7 +21,7 @@ backend:
 frontend:
   image:
     repository: "296725355870.dkr.ecr.ap-southeast-1.amazonaws.com/image-caption-dev-frontend"
-    tag: "48"
+    tag: "49"
 
 serviceAccount:
   roleArn: "arn:aws:iam::296725355870:role/image-caption-dev-demo-app"
