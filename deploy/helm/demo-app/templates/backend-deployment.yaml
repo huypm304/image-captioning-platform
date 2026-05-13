@@ -62,16 +62,16 @@ spec:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 90
+            initialDelaySeconds: 10
             periodSeconds: 15
-            failureThreshold: 8
+            failureThreshold: 40
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 180
+            initialDelaySeconds: 30
             periodSeconds: 30
-            failureThreshold: 6
+            failureThreshold: 20
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           volumeMounts:

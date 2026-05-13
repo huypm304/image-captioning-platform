@@ -29,20 +29,28 @@ def _truthy_env(name: str, default: str = "false") -> bool:
 
 
 STRICT_HEALTH_CHECK = _truthy_env("STRICT_HEALTH_CHECK", "false")
-
-# Preload model + metadata at startup to avoid slow first request
 _startup_error = None
-try:
-    logger.info("startup_preload_begin")
-    from vit_inference import load_caption_model, load_metadata, VIT_CAPTION_MODEL_PATH, VIT_METADATA_PATH
-    _caption_model = load_caption_model()
-    _metadata = load_metadata()
-    logger.info("startup_preload_complete", extra={"model_path": VIT_CAPTION_MODEL_PATH, "metadata_path": VIT_METADATA_PATH})
-except Exception as e:
-    _startup_error = e
-    logger.error("startup_preload_failed", extra={"error": str(e), "error_type": type(e).__name__})
 
-app = FastAPI(title="Image Captioning API (ViT)")
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app):
+    # Preload runs AFTER HTTP server is up so readinessProbe doesn't fail immediately
+    global _startup_error
+    try:
+        logger.info("startup_preload_begin")
+        from vit_inference import load_caption_model, load_metadata, VIT_CAPTION_MODEL_PATH, VIT_METADATA_PATH
+        load_caption_model()
+        load_metadata()
+        logger.info("startup_preload_complete", extra={"model_path": VIT_CAPTION_MODEL_PATH, "metadata_path": VIT_METADATA_PATH})
+    except Exception as e:
+        _startup_error = e
+        logger.error("startup_preload_failed", extra={"error": str(e), "error_type": type(e).__name__})
+    yield
+
+
+app = FastAPI(title="Image Captioning API (ViT)", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
