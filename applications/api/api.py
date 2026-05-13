@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
+import traceback
 from io import BytesIO
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -80,7 +82,11 @@ async def predict(
             "inference_error",
             extra={"error": str(e), "error_type": type(e).__name__, "error_repr": repr(e)},
         )
-        raise HTTPException(status_code=500, detail=f"Inference error: {type(e).__name__}: {str(e)}")
+        detail = f"Inference error: {type(e).__name__}: {str(e)}"
+        if os.getenv("INFERENCE_DEBUG", "").strip().lower() in ("1", "true", "yes", "on"):
+            tb = traceback.format_exc()
+            detail = f"{detail}\n\n--- traceback ---\n{tb[-6000:]}"
+        raise HTTPException(status_code=500, detail=detail)
 
     logger.info(
         "inference_complete",

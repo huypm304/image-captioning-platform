@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import numbers
 import os
 import pickle
@@ -96,6 +97,9 @@ class BahdanauAttention(keras.layers.Layer):
         cfg = super().get_config()
         cfg.update({"units": self.units})
         return cfg
+
+
+logger = logging.getLogger("vit_inference")
 
 
 CUSTOM_OBJECTS = {
@@ -267,14 +271,22 @@ def _predict_caption_step(model: object, photo: np.ndarray, seq_batch: np.ndarra
 # =============================================================================
 # Decoding
 # =============================================================================
+def _flatten_vocab_logits(yhat: np.ndarray) -> np.ndarray:
+    """Model may return (1, vocab), (vocab,), or higher-D; beam/greedy need a 1-D probability vector."""
+    a = np.asarray(yhat, dtype=np.float64).reshape(-1)
+    if a.size == 0:
+        raise ValueError("empty model output logits")
+    return a
+
+
 def greedy_search(model, photo, wordtoix, ixtoword, max_length: int) -> str:
     in_text = "startseq"
     for _ in range(max_length):
         seq = [wordtoix[w] for w in in_text.split() if w in wordtoix]
         seq = pad_sequences([seq], maxlen=max_length, padding="post")
-        yhat = _predict_caption_step(model, photo, seq)
-        yhat = int(np.argmax(yhat))
-        word = ixtoword.get(yhat, "")
+        yhat = _flatten_vocab_logits(_predict_caption_step(model, photo, seq))
+        yhat_i = int(np.argmax(yhat))
+        word = ixtoword.get(yhat_i, "")
         if not word:
             break
         in_text += " " + word
@@ -296,16 +308,24 @@ def beam_search(model, photo, wordtoix, ixtoword, max_length: int, beam_width: i
                 continue
 
             padded = pad_sequences([seq], maxlen=max_length, padding="post")
-            yhat = _predict_caption_step(model, photo, padded)
-            top_k = np.argsort(yhat)[-beam_width:]
+            yhat = _flatten_vocab_logits(_predict_caption_step(model, photo, padded))
+            bw = min(beam_width, yhat.size)
+            top_k = np.argsort(yhat)[-bw:] if bw > 0 else np.array([], dtype=np.int64)
             for word_idx in top_k:
-                new_score = float(score) - float(np.log(yhat[word_idx] + 1e-10))
-                all_candidates.append([seq + [int(word_idx)], new_score])
+                wi = int(word_idx)
+                new_score = float(score) - float(np.log(float(yhat[wi]) + 1e-10))
+                all_candidates.append([seq + [wi], new_score])
 
+        if not all_candidates:
+            break
         sequences = sorted(all_candidates, key=lambda x: x[1] / (len(x[0]) ** 0.7))[:beam_width]
+        if not sequences:
+            break
         if all(s[-1] == end for s, _ in sequences):
             break
 
+    if not sequences:
+        return ""
     best_seq = sequences[0][0]
     words = [
         ixtoword.get(int(i), "")
@@ -387,6 +407,10 @@ def load_caption_model(path: str = VIT_CAPTION_MODEL_PATH):
             )
         except TypeError:
             _MODEL_CACHE[p] = keras.models.load_model(p, compile=False, custom_objects=CUSTOM_OBJECTS)
+        m = _MODEL_CACHE[p]
+        inames = getattr(m, "input_names", None)
+        n_in = len(getattr(m, "inputs", None) or [])
+        logger.info("caption_model_ready", extra={"path": p, "input_names": inames, "n_inputs": n_in})
     return _MODEL_CACHE[p]
 
 
@@ -411,5 +435,9 @@ def generate_caption(
 
     if strategy == "greedy":
         return greedy_search(model, features, meta.wordtoix, meta.ixtoword, meta.max_len)
-    return beam_search(model, features, meta.wordtoix, meta.ixtoword, meta.max_len, beam_width=beam_width)
+    try:
+        return beam_search(model, features, meta.wordtoix, meta.ixtoword, meta.max_len, beam_width=beam_width)
+    except Exception as e:
+        logger.warning("beam_search_failed_using_greedy", extra={"error": repr(e)})
+        return greedy_search(model, features, meta.wordtoix, meta.ixtoword, meta.max_len)
 
