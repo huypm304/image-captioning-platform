@@ -10,13 +10,13 @@ backend:
     
   env:
     - name: MODELS_DIR
-      value: "/models"
+      value: "/models/patched_models"
     - name: VIT_CAPTION_MODEL_PATH
-      value: "/models/vit_attention_full_patched.keras"
+      value: "/models/patched_models/vit_attention_full_patched.keras"
     - name: VIT_PROJ_W_PATH
-      value: "/models/vit_proj_W.npy"
+      value: "/models/patched_models/vit_proj_W.npy"
     - name: VIT_METADATA_PATH
-      value: "/models/v2_metadata.pkl"
+      value: "/models/patched_models/v2_metadata.pkl"
 
 frontend:
   image:
