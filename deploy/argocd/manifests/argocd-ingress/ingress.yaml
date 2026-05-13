@@ -11,8 +11,11 @@ metadata:
     alb.ingress.kubernetes.io/group.name: image-caption
     # Argo "Refresh" can exceed default ALB idle timeout (~60s) → 504; applies to whole ALB in this group.
     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600
-    # HTTP first so the shared ALB group provisions; bootstrap script 11 adds HTTPS + ACM ARN.
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    # Must expose HTTPS on this Ingress too: the shared ALB’s :443 listener is created by app ingress with
+    # only app/api hosts — without these annotations, https://argocd.minhhuy.me hits :443 with no rule → 404.
+    alb.ingress.kubernetes.io/certificate-arn: __ACM_CERTIFICATE_ARN__
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/backend-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP

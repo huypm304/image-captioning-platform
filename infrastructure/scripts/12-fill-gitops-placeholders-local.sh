@@ -53,5 +53,12 @@ sed -i.bak \
   "${ROOT}/deploy/helm/demo-app/values-argocd.yaml"
 rm -f "${ROOT}/deploy/helm/demo-app/values-argocd.yaml.bak"
 
-echo "Done. Review: git diff deploy/helm/demo-app/values-argocd.yaml"
-echo "Then: git add deploy/helm/demo-app/values-argocd.yaml && git commit && git push origin <branch>  &&  Argo CD Refresh on application image-captioning"
+sed -i.bak \
+  -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
+  -e "s#alb.ingress.kubernetes.io/certificate-arn:.*#alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}#" \
+  "${ROOT}/deploy/argocd/manifests/grafana/ingress.yaml" \
+  "${ROOT}/deploy/argocd/manifests/argocd-ingress/ingress.yaml"
+rm -f "${ROOT}/deploy/argocd/manifests/grafana/ingress.yaml.bak" "${ROOT}/deploy/argocd/manifests/argocd-ingress/ingress.yaml.bak"
+
+echo "Done. Review: git diff deploy/helm/demo-app/values-argocd.yaml deploy/argocd/manifests/grafana/ingress.yaml deploy/argocd/manifests/argocd-ingress/ingress.yaml"
+echo "Then: git add deploy/helm/demo-app/values-argocd.yaml deploy/argocd/manifests/grafana/ingress.yaml deploy/argocd/manifests/argocd-ingress/ingress.yaml && git commit && git push origin <branch>  &&  Argo CD Refresh (applications argocd-ingress, grafana-ingress, image-captioning)"

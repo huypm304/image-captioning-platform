@@ -27,9 +27,11 @@ steps:
       deploy/helm/demo-app/values-argocd.yaml;
     sed -i.bak \
       -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
+      -e "s#alb.ingress.kubernetes.io/certificate-arn:.*#alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}#" \
       deploy/argocd/manifests/grafana/ingress.yaml;
     sed -i.bak \
       -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
+      -e "s#alb.ingress.kubernetes.io/certificate-arn:.*#alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}#" \
       deploy/argocd/manifests/argocd-ingress/ingress.yaml;
     rm -f deploy/helm/demo-app/values-argocd.yaml.bak deploy/argocd/manifests/grafana/ingress.yaml.bak deploy/argocd/manifests/argocd-ingress/ingress.yaml.bak;
     git config user.email "jenkins@localhost";
