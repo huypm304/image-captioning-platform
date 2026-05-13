@@ -5,7 +5,12 @@ pipeline {
     string(
       name: 'AGENT_LABEL',
       defaultValue: 'laptop',
-      description: 'Parameters — agent label for checkout / test / build / GitOps. AWS + Git use fixed cred IDs: aws-creds-id, gitops-git-pat.'
+      description: 'Agent label for checkout / test / build / GitOps (kubectl, docker, AWS CLI on agent).'
+    )
+    string(
+      name: 'GITOPS_CREDENTIALS_ID',
+      defaultValue: 'gitops-git-pat',
+      description: 'Jenkins "Username with password" credential id for Git HTTPS push in update-gitops (username = GitHub user, password = PAT with repo scope). Create in Manage Jenkins → Credentials, or change this to your existing id.'
     )
   }
 
@@ -57,7 +62,7 @@ pipeline {
               stage(cfg.name) {
                 withCredentials([[
                   $class: 'UsernamePasswordMultiBinding',
-                  credentialsId: 'gitops-git-pat',
+                  credentialsId: params.GITOPS_CREDENTIALS_ID,
                   usernameVariable: 'GIT_USERNAME',
                   passwordVariable: 'GIT_TOKEN'
                 ]]) {
