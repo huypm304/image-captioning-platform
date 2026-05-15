@@ -1,0 +1,59 @@
+// cluster-bootstrap: one-time platform setup after EKS is provisioned by infra-pipeline.
+// Installs ALB controller, monitoring, logging, Argo CD, and applies Argo CD Applications.
+// Run manually after infra-pipeline (STAGE=apply) completes.
+pipeline {
+  agent none
+
+  parameters {
+    string(
+      name: 'AGENT_LABEL',
+      defaultValue: 'laptop',
+      description: 'Parameters — Jenkins agent label (kubectl, helm, eksctl, AWS CLI). Credentials stay aws-creds-id in pipeline.'
+    )
+  }
+
+  environment {
+    AWS_REGION         = 'ap-southeast-1'
+    AWS_DEFAULT_REGION = 'ap-southeast-1'
+    CLUSTER_NAME       = 'image-caption-dev-eks'
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  stages {
+    stage('Cluster Bootstrap') {
+      steps {
+        script {
+          def stagesDir = 'ci/jenkins/stages/bootstrap'
+          def bootstrapStages = [
+            'configure-kubectl',
+            'install-alb',
+            'install-monitoring',
+            'install-logging',
+            'install-argocd',
+            'verify-cluster'
+          ]
+
+          withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds-id'
+          ]]) {
+            node(params.AGENT_LABEL) {
+              checkout scm
+
+              bootstrapStages.each { sName ->
+                def cfg = readYaml file: "${stagesDir}/${sName}.yaml"
+                stage(cfg.name) {
+                  cfg.steps.each { cmd -> sh cmd }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

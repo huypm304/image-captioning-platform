@@ -1,7 +1,0 @@
-name: Test
-agent: laptop
-steps:
-  - "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-  - "docker pull ${ECR_REGISTRY}/${ECR_REPO}:${BUILD_NUMBER}"
-  - "docker run --rm ${ECR_REGISTRY}/${ECR_REPO}:${BUILD_NUMBER} python -c \"import api, vit_inference; print('import OK')\""
-  - "echo Smoke test passed"

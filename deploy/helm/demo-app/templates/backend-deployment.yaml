@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-backend
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}-backend
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Release.Name }}-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Release.Name }}-backend
+        app.kubernetes.io/component: backend
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      initContainers:
+        - name: fetch-models
+          image: amazon/aws-cli:2.17.0
+          env:
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.env.AWS_REGION | quote }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              aws s3 cp --recursive \
+                "s3://{{ .Values.models.s3Bucket }}/{{ .Values.models.s3Prefix }}" \
+                "{{ .Values.models.mountPath }}/"
+          volumeMounts:
+            - name: models
+              mountPath: {{ .Values.models.mountPath }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.service.targetPort }}
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.env.AWS_REGION | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.env.AWS_REGION | quote }}
+            - name: MODELS_DIR
+              value: "{{ .Values.models.mountPath }}"
+            - name: VIT_CAPTION_MODEL_PATH
+              value: "{{ .Values.models.mountPath }}/vit_attention_full_patched.keras"
+            - name: VIT_PROJ_W_PATH
+              value: "{{ .Values.models.mountPath }}/vit_proj_W.npy"
+            - name: VIT_METADATA_PATH
+              value: "{{ .Values.models.mountPath }}/v2_metadata.pkl"
+            - name: HF_HOME
+              value: /hf-cache
+            - name: TRANSFORMERS_CACHE
+              value: /hf-cache
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 40
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 20
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: models
+              mountPath: {{ .Values.models.mountPath }}
+              readOnly: true
+      volumes:
+        - name: models
+          emptyDir: {}

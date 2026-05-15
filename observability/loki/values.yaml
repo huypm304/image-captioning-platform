@@ -1,0 +1,10 @@
+# loki-stack: Loki + Promtail. Grafana here is disabled; kube-prometheus-stack Grafana adds Loki (see observability/prometheus/values.yaml).
+loki:
+  persistence:
+    enabled: false
+
+promtail:
+  enabled: true
+
+grafana:
+  enabled: false

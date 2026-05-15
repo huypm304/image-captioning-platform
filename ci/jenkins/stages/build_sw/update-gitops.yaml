@@ -1,0 +1,82 @@
+name: Update GitOps
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}";
+    export AWS_DEFAULT_REGION="${REGION}";
+    ACCOUNT=$(aws sts get-caller-identity --query Account --output text);
+    printf "bucket = \"image-caption-dev-tfstate-%s\"\nkey = \"image-caption/dev/terraform.tfstate\"\nregion = \"%s\"\ndynamodb_table = \"image-caption-dev-tflock\"\nencrypt = true\n" "${ACCOUNT}" "${REGION}" > infrastructure/terraform/backend.hcl;
+    cd infrastructure/terraform;
+    terraform init -input=false -no-color -backend-config=backend.hcl >/dev/null;
+    BUCKET=$(terraform output -raw models_bucket);
+    ROLE_ARN=$(terraform output -raw demo_app_role_arn);
+    CERT_ARN=$(terraform output -raw acm_certificate_arn);
+    printf "\n========== ACM Certificate ARN (GitOps manifests / ALB) ==========\n%s\n\n" "${CERT_ARN}";
+    cd ../..;
+    TAG="${BUILD_NUMBER}";
+    BE_REPO="${ECR_REGISTRY}/${ECR_REPO_BE}";
+    FE_REPO="${ECR_REGISTRY}/${ECR_REPO_FE}";
+    sed -i.bak \
+      -e "s|__BACKEND_IMAGE_REPO__|${BE_REPO}|g" \
+      -e "s|__FRONTEND_IMAGE_REPO__|${FE_REPO}|g" \
+      -e "s|__IMAGE_TAG__|${TAG}|g" \
+      -e "s|tag: \"[0-9][0-9]*\"|tag: \"${TAG}\"|g" \
+      -e "s|__DEMO_APP_ROLE_ARN__|${ROLE_ARN}|g" \
+      -e "s|__MODELS_BUCKET__|${BUCKET}|g" \
+      -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
+      deploy/helm/demo-app/values-argocd.yaml;
+    sed -i.bak \
+      -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
+      -e "s#alb.ingress.kubernetes.io/certificate-arn:.*#alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}#" \
+      deploy/argocd/manifests/grafana/ingress.yaml;
+    sed -i.bak \
+      -e "s|__ACM_CERTIFICATE_ARN__|${CERT_ARN}|g" \
+      -e "s#alb.ingress.kubernetes.io/certificate-arn:.*#alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}#" \
+      deploy/argocd/manifests/argocd-ingress/ingress.yaml;
+    rm -f deploy/helm/demo-app/values-argocd.yaml.bak deploy/argocd/manifests/grafana/ingress.yaml.bak deploy/argocd/manifests/argocd-ingress/ingress.yaml.bak;
+    git config user.email "jenkins@localhost";
+    git config user.name "Jenkins CI";
+    git add deploy/helm/demo-app/values-argocd.yaml deploy/argocd/manifests/grafana/ingress.yaml deploy/argocd/manifests/argocd-ingress/ingress.yaml;
+    if git diff --cached --quiet; then
+      printf "%s\n" \
+        "No GitOps commit this run - expected and OK." \
+        "  Reason: after sed, staged files are identical to the last commit on this branch." \
+        "  Meaning: GitHub already has ECR tag ${TAG}, ACM ARN, Terraform outputs (nothing new to record)." \
+        "  Argo CD: still tracks branch tip; use Hard Refresh if the cluster lags behind Git (no new commit required)." \
+        "  To force a new commit anyway: change a comment in values-argocd.yaml or use git commit --allow-empty (usually unnecessary).";
+    else
+      git commit -m "ci(gitops): bump images to ${TAG} and sync ACM ARN";
+      BR="";
+      if [ -n "${GITOPS_PUSH_BRANCH:-}" ]; then BR="${GITOPS_PUSH_BRANCH}"; fi;
+      if [ -z "${BR}" ] && [ -n "${BRANCH_NAME:-}" ]; then BR="${BRANCH_NAME}"; fi;
+      if [ -z "${BR}" ] && [ -n "${CHANGE_BRANCH:-}" ]; then BR="${CHANGE_BRANCH}"; fi;
+      if [ -z "${BR}" ] && [ -n "${GIT_BRANCH:-}" ]; then BR="${GIT_BRANCH#origin/}"; fi;
+      if [ -z "${BR}" ]; then
+        TR=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true);
+        if [ -n "${TR}" ] && [ "${TR}" != "HEAD" ]; then BR="${TR}"; fi;
+      fi;
+      if [ -z "${BR}" ]; then
+        BR=$(git branch -r --contains "$(git rev-parse HEAD 2>/dev/null)" 2>/dev/null \
+          | grep -E "^[[:space:]]*origin/" | grep -v "origin/HEAD" | head -1 \
+          | sed "s/^[[:space:]]*origin\///" | tr -d "[:space:]");
+      fi;
+      if [ -z "${BR}" ]; then
+        BR=$(git remote show origin 2>/dev/null | sed -n "/HEAD branch/s/.*: //p" | head -1 | tr -d "[:space:]");
+      fi;
+      if [ -z "${BR}" ] || [ "${BR}" = "HEAD" ]; then
+        echo "ERROR: cannot resolve push branch (detached HEAD and no GITOPS_PUSH_BRANCH / BRANCH_NAME / GIT_BRANCH / CHANGE_BRANCH, and could not infer from origin). Set Jenkins job parameter GITOPS_PUSH_BRANCH (e.g. main or feature/test)."; exit 1;
+      fi;
+      echo "Pushing GitOps commit to branch: ${BR}";
+      if [ -n "${GIT_TOKEN:-}" ] && [ -n "${GIT_USERNAME:-}" ]; then
+        REMOTE_URL=$(git remote get-url origin);
+        if echo "${REMOTE_URL}" | grep -q "^https://"; then
+          HOSTPATH=$(echo "${REMOTE_URL}" | sed -e "s|^https://||");
+          git push "https://${GIT_USERNAME}:${GIT_TOKEN}@${HOSTPATH}" "HEAD:refs/heads/${BR}";
+        else
+          echo "Configure origin as https://github.com/org/repo.git for PAT push, or use SSH agent"; exit 1;
+        fi;
+      else
+        echo "GIT_USERNAME/GIT_TOKEN not set (Jenkins credentials gitops-git-pat)"; exit 1;
+      fi;
+    fi'

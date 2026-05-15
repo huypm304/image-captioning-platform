@@ -1,0 +1,4 @@
+name: TF Validate
+agent: laptop
+steps:
+  - "bash -lc 'terraform validate -no-color && echo \"terraform validate: OK\"'"

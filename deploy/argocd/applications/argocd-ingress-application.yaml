@@ -1,0 +1,27 @@
+# Argo CD Application — ALB ingress for Argo CD UI (Kustomize under deploy/argocd/manifests/argocd-ingress).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-ingress
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huypm304/image-captioning-platform.git
+    targetRevision: "feature/test"
+    path: deploy/argocd/manifests/argocd-ingress
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+  # Bootstrap patches HTTPS + ACM; Git keeps HTTP until Jenkins writes real ARN into Helm values.
+  ignoreDifferences:
+    - group: networking.k8s.io
+      kind: Ingress
+      jqPathExpressions:
+        - .metadata.annotations["alb.ingress.kubernetes.io/certificate-arn"]
+        - .metadata.annotations["alb.ingress.kubernetes.io/listen-ports"]
+        - .metadata.annotations["alb.ingress.kubernetes.io/ssl-redirect"]

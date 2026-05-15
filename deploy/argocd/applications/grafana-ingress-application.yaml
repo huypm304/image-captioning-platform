@@ -1,0 +1,27 @@
+# Argo CD Application — Grafana ALB ingress (Kustomize under deploy/argocd/manifests/grafana).
+# Set repoURL / targetRevision to match the Git repo Argo CD pulls from (fork if needed).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana-ingress
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huypm304/image-captioning-platform.git
+    targetRevision: "feature/test"
+    path: deploy/argocd/manifests/grafana
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+  ignoreDifferences:
+    - group: networking.k8s.io
+      kind: Ingress
+      jqPathExpressions:
+        - .metadata.annotations["alb.ingress.kubernetes.io/certificate-arn"]
+        - .metadata.annotations["alb.ingress.kubernetes.io/listen-ports"]
+        - .metadata.annotations["alb.ingress.kubernetes.io/ssl-redirect"]

@@ -1,0 +1,40 @@
+# Argo CD Application — Helm chart in-repo (path relative to repo root).
+# After installing Argo CD, apply this manifest (update repoURL if forked).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: image-captioning
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/huypm304/image-captioning-platform.git
+    targetRevision: "feature/test"
+    path: deploy/helm/demo-app
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-argocd.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+  # Avoid selfHeal ↔ Git fighting on rollout-only annotations (kubectl rollout restart / ops).
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt

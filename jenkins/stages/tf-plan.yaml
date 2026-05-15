@@ -1,6 +1,0 @@
-name: TF Plan
-agent: laptop
-archive: "terraform/tfplan,terraform/tfplan.txt,terraform/tfplan.show.txt"
-steps:
-  - "cd terraform && terraform plan -no-color -out=tfplan | tee tfplan.txt"
-  - "cd terraform && terraform show -no-color tfplan > tfplan.show.txt && head -200 tfplan.show.txt"

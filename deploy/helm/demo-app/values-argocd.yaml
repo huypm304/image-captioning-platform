@@ -1,0 +1,33 @@
+# GitOps overrides (updated by Jenkins CI — do not hand-edit tags in automation flow).
+# Argo CD Application uses: valueFiles [values.yaml, values-argocd.yaml]
+#
+# Placeholders __*__ are replaced by ci/jenkins/stages/build_sw/update-gitops.yaml before git push (paths under deploy/helm/demo-app).
+
+backend:
+  image:
+    repository: "296725355870.dkr.ecr.ap-southeast-1.amazonaws.com/image-caption-dev-app"
+    tag: "66"
+    
+  env:
+    - name: MODELS_DIR
+      value: "/models/patched_models"
+    - name: VIT_CAPTION_MODEL_PATH
+      value: "/models/patched_models/vit_attention_full_patched.keras"
+    - name: VIT_PROJ_W_PATH
+      value: "/models/patched_models/vit_proj_W.npy"
+    - name: VIT_METADATA_PATH
+      value: "/models/patched_models/v2_metadata.pkl"
+
+frontend:
+  image:
+    repository: "296725355870.dkr.ecr.ap-southeast-1.amazonaws.com/image-caption-dev-frontend"
+    tag: "66"
+
+serviceAccount:
+  roleArn: "arn:aws:iam::296725355870:role/image-caption-dev-demo-app"
+
+models:
+  s3Bucket: "image-caption-dev-models-296725355870"
+
+ingress:
+  certificateArn: "arn:aws:acm:ap-southeast-1:296725355870:certificate/72fd444f-c84d-4964-8a2c-d8b0fc391514"

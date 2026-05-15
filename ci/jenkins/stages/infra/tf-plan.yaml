@@ -1,0 +1,9 @@
+name: TF Plan
+agent: laptop
+archive: "tfplan,tfplan.txt,tfplan.show.txt"
+steps:
+  - "bash -lc 'terraform plan -no-color -out=tfplan | tee tfplan.txt'"
+  - "bash -lc 'terraform show -no-color tfplan > tfplan.show.txt && head -200 tfplan.show.txt'"
+  - >-
+    bash -lc 'echo ""; echo "========== ACM Certificate ARN (from current state) ==========";
+    terraform output -raw acm_certificate_arn 2>/dev/null || echo "(not available yet — run apply first)"'

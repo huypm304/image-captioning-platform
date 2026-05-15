@@ -1,0 +1,12 @@
+name: TF Apply
+agent: laptop
+steps:
+  - "bash -lc 'if [ -f tfplan ]; then terraform apply -no-color -input=false tfplan; else terraform apply -no-color -auto-approve -input=false; fi'"
+  - >-
+    bash -lc 'set -euo pipefail;
+    echo "";
+    echo "========== ACM Certificate ARN (copy for ALB / GitOps / Namecheap notes) ==========";
+    terraform output -raw acm_certificate_arn;
+    echo "";
+    echo "========== All Terraform outputs ==========";
+    terraform output -no-color'

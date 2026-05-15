@@ -1,0 +1,87 @@
+// gitops-sync-check: verify Argo CD sync (optional), rollout health, and smoke-test the API.
+// Requires: aws-creds-id. Optional: argocd-creds (skip Argo CLI step until credential exists).
+pipeline {
+  agent none
+
+  parameters {
+    string(
+      name: 'AGENT_LABEL',
+      defaultValue: 'laptop',
+      description: 'Parameters — agent label (kubectl, curl; argocd CLI if not skipping Argo step). AWS: aws-creds-id.'
+    )
+    string(
+      name: 'APP_NAME',
+      defaultValue: 'image-captioning',
+      description: 'Parameters — Argo CD Application name (argocd app wait / get) when Argo CLI step runs.'
+    )
+    booleanParam(
+      name: 'SKIP_ARGOCD_CLI',
+      defaultValue: true,
+      description: 'If true: skip argocd app get/wait (no argocd-creds needed). Uncheck after adding Jenkins credential id argocd-creds (Username=Argo server URL, Password=token).'
+    )
+  }
+
+  environment {
+    AWS_REGION         = 'ap-southeast-1'
+    AWS_DEFAULT_REGION = 'ap-southeast-1'
+    CLUSTER_NAME       = 'image-caption-dev-eks'
+  }
+
+  options {
+    timestamps()
+  }
+
+  stages {
+    stage('GitOps Sync Check') {
+      steps {
+        script {
+          def stagesDir = 'ci/jenkins/stages/synccheck'
+          def skipArgo = (params.SKIP_ARGOCD_CLI == true) \
+            || (params.SKIP_ARGOCD_CLI?.toString()?.equalsIgnoreCase('true'))
+          def checkStages = skipArgo \
+            ? ['kubectl-rollout', 'smoke-test'] \
+            : ['argocd-app-status', 'kubectl-rollout', 'smoke-test']
+
+          def runChecks = {
+            node(params.AGENT_LABEL) {
+              checkout scm
+              env.APP_NAME = params.APP_NAME
+              env.HELM_RELEASE_NAME = params.APP_NAME
+              echo "APP_NAME=${env.APP_NAME} (Argo app = Helm release; rollout/smoke use HELM_RELEASE_NAME)"
+              if (skipArgo) {
+                echo 'SKIP_ARGOCD_CLI=true — skipping Argo CD CLI (add credential argocd-creds and uncheck to enable).'
+              }
+
+              checkStages.each { sName ->
+                def cfg = readYaml file: "${stagesDir}/${sName}.yaml"
+                stage(cfg.name) {
+                  cfg.steps.each { cmd -> sh cmd }
+                }
+              }
+            }
+          }
+
+          if (skipArgo) {
+            withCredentials([[
+              $class: 'AmazonWebServicesCredentialsBinding',
+              credentialsId: 'aws-creds-id'
+            ]]) {
+              runChecks()
+            }
+          } else {
+            withCredentials([
+              [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds-id'],
+              usernamePassword(
+                credentialsId: 'argocd-creds',
+                usernameVariable: 'ARGOCD_SERVER',
+                passwordVariable: 'ARGOCD_AUTH_TOKEN'
+              )
+            ]) {
+              runChecks()
+            }
+          }
+        }
+      }
+    }
+  }
+}

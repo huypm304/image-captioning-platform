@@ -1,0 +1,5 @@
+clusterName: image-caption-dev-eks
+
+serviceAccount:
+  create: false
+  name: aws-load-balancer-controller

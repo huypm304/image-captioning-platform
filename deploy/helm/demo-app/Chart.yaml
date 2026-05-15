@@ -1,0 +1,6 @@
+apiVersion: v2
+name: demo-app
+description: AI Image Caption platform (FastAPI backend + React frontend)
+type: application
+version: 0.2.0
+appVersion: "2.0"

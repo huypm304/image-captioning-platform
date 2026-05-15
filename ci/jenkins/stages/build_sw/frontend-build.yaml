@@ -1,0 +1,11 @@
+name: Frontend Build
+agent: laptop
+# Host Node on Jenkins agents is often too old for TypeScript 5.x / Vite 6. Build inside Node 20 (same major as applications/web/Dockerfile).
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    cd "${WORKSPACE}";
+    docker run --rm --platform linux/amd64
+    -v "${WORKSPACE}/applications/web:/app"
+    -w /app node:20-alpine
+    sh -c "npm install && npm run build"'
