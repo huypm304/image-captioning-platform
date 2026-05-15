@@ -13,11 +13,11 @@ steps:
       echo "No ALB hostname on ingress/${REL}-ingress — ingress may not be ready yet"; exit 1;
     fi;
     echo "ALB: ${ALB_DNS}  (Host: ${API_HOST})";
-    echo "=== GET /health ===";
+    echo "=== GET /health (HTTPS; Ingress uses ssl-redirect — http:// would return 301) ===";
     for i in 1 2 3 4 5; do
-      STATUS=$(curl -sf --max-time 10 -H "Host: ${API_HOST}" "http://${ALB_DNS}/health" -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000");
+      STATUS=$(curl -sk --max-time 15 -H "Host: ${API_HOST}" "https://${ALB_DNS}/health" -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000");
       echo "Attempt ${i}: HTTP ${STATUS}";
       if [ "${STATUS}" = "200" ]; then echo "Smoke test PASSED"; exit 0; fi;
       sleep 15;
     done;
-    echo "Smoke test FAILED — /health did not return 200 after 5 attempts"; exit 1'
+    echo "Smoke test FAILED — /health did not return 200 after 5 attempts (check backend pods/endpoints)"; exit 1'
