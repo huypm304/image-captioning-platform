@@ -1,0 +1,34 @@
+# Argo CD UI — same ALB group as demo-app / Grafana. TLS terminates at ALB; ACM ARN filled by Jenkins gitops.
+# Requires Helm install with server.insecure=true (see infrastructure/scripts/09-install-argocd.sh).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: image-caption
+    # Argo "Refresh" can exceed default ALB idle timeout (~60s) → 504; applies to whole ALB in this group.
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600
+    # Must expose HTTPS on this Ingress too: the shared ALB’s :443 listener is created by app ingress with
+    # only app/api hosts — without these annotations, https://argocd.minhhuy.me hits :443 with no rule → 404.
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-southeast-1:296725355870:certificate/72fd444f-c84d-4964-8a2c-d8b0fc391514
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+spec:
+  ingressClassName: alb
+  rules:
+    - host: argocd.minhhuy.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80

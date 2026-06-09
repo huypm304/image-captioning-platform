@@ -1,0 +1,44 @@
+{{- if .Values.ingress.enabled }}
+{{- $cert := .Values.ingress.certificateArn | default "" }}
+{{- $certValid := and $cert (not (hasPrefix "__" $cert)) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: image-caption
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600
+    {{- if $certValid }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificateArn }}
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    {{- else }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    {{- end }}
+spec:
+  ingressClassName: alb
+  rules:
+    - host: {{ .Values.ingress.hosts.app }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-frontend
+                port:
+                  number: {{ .Values.frontend.service.port }}
+    - host: {{ .Values.ingress.hosts.api }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-backend
+                port:
+                  number: {{ .Values.backend.service.port }}
+{{- end }}

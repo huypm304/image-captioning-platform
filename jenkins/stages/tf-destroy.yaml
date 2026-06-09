@@ -1,4 +1,0 @@
-name: TF Destroy
-agent: laptop
-steps:
-  - "cd terraform && terraform destroy -no-color -auto-approve -input=false"

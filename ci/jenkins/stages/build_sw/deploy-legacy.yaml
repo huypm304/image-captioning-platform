@@ -1,0 +1,34 @@
+# Legacy: direct Helm + kubectl deploy (pre-GitOps). Prefer Argo CD + ci/jenkins/stages/build_sw/update-gitops.yaml.
+# To run manually from Jenkins, add a one-off stage or use Script console.
+name: DeployLegacy
+agent: laptop
+steps:
+  - "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"
+  - >-
+    bash -c 'set -euo pipefail;
+    REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}";
+    export AWS_DEFAULT_REGION="${REGION}";
+    ACCOUNT=$(aws sts get-caller-identity --query Account --output text);
+    printf "bucket = \"image-caption-dev-tfstate-%s\"\nkey = \"image-caption/dev/terraform.tfstate\"\nregion = \"%s\"\ndynamodb_table = \"image-caption-dev-tflock\"\nencrypt = true\n" "${ACCOUNT}" "${REGION}" > infrastructure/terraform/backend.hcl;
+    cd infrastructure/terraform;
+    terraform init -input=false -no-color -backend-config=backend.hcl >/dev/null;
+    BUCKET=$(terraform output -raw models_bucket);
+    ROLE_ARN=$(terraform output -raw demo_app_role_arn);
+    CERT_ARN=$(terraform output -raw acm_certificate_arn);
+    cd ../..;
+    kubectl version || true;
+    kubectl apply --request-timeout=60s -f deploy/kubernetes/namespaces.yaml;
+    helm upgrade --install demo-app ./deploy/helm/demo-app \
+      --namespace default \
+      --set backend.image.repository=${ECR_REGISTRY}/${ECR_REPO_BE} \
+      --set backend.image.tag=${BUILD_NUMBER} \
+      --set frontend.image.repository=${ECR_REGISTRY}/${ECR_REPO_FE} \
+      --set frontend.image.tag=${BUILD_NUMBER} \
+      --set models.s3Bucket=${BUCKET} \
+      --set serviceAccount.roleArn=${ROLE_ARN} \
+      --set ingress.certificateArn=${CERT_ARN} \
+      --wait --timeout 15m;
+    CERT_SUB="s|\${ACM_CERTIFICATE_ARN}|${CERT_ARN}|g";
+    sed "${CERT_SUB}" deploy/kubernetes/grafana-ingress.yaml | kubectl apply --request-timeout=60s -f -'
+  - "kubectl rollout status deployment/demo-app-backend -n default --timeout=15m"
+  - "kubectl rollout status deployment/demo-app-frontend -n default --timeout=5m"

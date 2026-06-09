@@ -1,0 +1,21 @@
+name: Argo CD App Status
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    echo "=== Checking Argo CD app: ${APP_NAME} ===";
+    argocd app get "${APP_NAME}" \
+      --server "${ARGOCD_SERVER}" \
+      --auth-token "${ARGOCD_AUTH_TOKEN}" \
+      --grpc-web \
+      --refresh;
+    echo "";
+    echo "=== Waiting for Synced + Healthy (timeout 120s) ===";
+    argocd app wait "${APP_NAME}" \
+      --server "${ARGOCD_SERVER}" \
+      --auth-token "${ARGOCD_AUTH_TOKEN}" \
+      --grpc-web \
+      --health \
+      --sync \
+      --timeout 120;
+    echo "App ${APP_NAME} is Synced and Healthy."'

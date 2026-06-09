@@ -1,0 +1,53 @@
+backend:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+    targetPort: 8000
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 1500m
+      memory: 3Gi
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+    targetPort: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+serviceAccount:
+  name: demo-app
+  roleArn: ""
+
+models:
+  s3Bucket: ""
+  s3Prefix: "patched_models/"
+  # Shared emptyDir mount + initContainer sync from S3; must match VIT_* paths in backend-deployment.
+  mountPath: "/models"
+
+ingress:
+  enabled: true
+  certificateArn: ""
+  hosts:
+    app: app.minhhuy.me
+    api: api.minhhuy.me
+
+env:
+  AWS_REGION: ap-southeast-1

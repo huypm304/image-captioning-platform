@@ -1,0 +1,23 @@
+name: TF Init
+agent: laptop
+steps:
+  - |
+    bash -lc '
+    set -euo pipefail
+    REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
+    export AWS_DEFAULT_REGION="${REGION}"
+    ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+    
+    printf "%s\n" \
+      "bucket         = \"image-caption-dev-tfstate-${ACCOUNT}\"" \
+      "key            = \"image-caption/dev/terraform.tfstate\"" \
+      "region         = \"${REGION}\"" \
+      "dynamodb_table = \"image-caption-dev-tflock\"" \
+      "encrypt        = true" > backend.hcl
+
+    # Drop stale plan files from a previous run (e.g. apply aborted). Avoids
+    # "Saved plan is stale" when the next job is STAGE=apply with a leftover tfplan.
+    rm -f tfplan tfplan.txt tfplan.show.txt
+
+    terraform init -input=false -no-color -reconfigure -backend-config=backend.hcl
+    '

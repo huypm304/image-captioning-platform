@@ -1,0 +1,7 @@
+name: Configure kubectl
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    cd "${WORKSPACE}";
+    bash infrastructure/scripts/02-configure-kubectl.sh'

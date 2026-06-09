@@ -1,0 +1,79 @@
+pipeline {
+  agent none 
+
+  parameters {
+    string(
+      name: 'AGENT_LABEL',
+      defaultValue: 'laptop',
+      description: 'Parameters — agent label for Terraform stages. AWS credential fixed: aws-creds-id.'
+    )
+    choice(
+      name: 'STAGE',
+      choices: ['plan', 'apply', 'plan-then-apply', 'destroy'],
+      description: 'Parameters — Terraform lifecycle stage.'
+    )
+  }
+
+  environment {
+    AWS_DEFAULT_REGION = 'ap-southeast-1'
+    TF_IN_AUTOMATION   = 'true'
+    TF_INPUT           = 'false'
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  stages {
+    stage('Terraform Infrastructure Management') {
+      steps {
+        script {
+          def stagesDir = 'ci/jenkins/stages/infra'
+          def order = []
+          switch (params.STAGE) {
+            case 'plan':
+              order = ['tf-init', 'tf-fmt', 'tf-validate', 'tf-plan']
+              break
+            case 'apply':
+              order = ['tf-init', 'tf-apply']
+              break
+            case 'plan-then-apply':
+              order = ['tf-init', 'tf-fmt', 'tf-validate', 'tf-plan', 'tf-apply']
+              break
+            case 'destroy':
+              order = ['tf-init', 'tf-destroy']
+              break
+            default:
+              order = ['tf-init', 'tf-fmt', 'tf-validate', 'tf-plan']
+          }
+
+          node(params.AGENT_LABEL) {
+            checkout scm
+
+            withCredentials([[
+              $class: 'AmazonWebServicesCredentialsBinding',
+              credentialsId: 'aws-creds-id'
+            ]]) {
+              order.each { sName ->
+                def cfg = readYaml file: "${stagesDir}/${sName}.yaml"
+                
+                stage(cfg.name) {
+                  dir('infrastructure/terraform') { 
+                    cfg.steps.each { cmd -> 
+                      sh "${cmd}" 
+                    }
+                  }
+                  
+                  if (cfg.containsKey('archive') && cfg.archive) {
+                    archiveArtifacts artifacts: "infrastructure/terraform/${cfg.archive}", allowEmptyArchive: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

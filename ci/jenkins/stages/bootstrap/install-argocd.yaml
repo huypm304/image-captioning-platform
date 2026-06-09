@@ -1,0 +1,21 @@
+name: Install Argo CD
+agent: laptop
+steps:
+  - >-
+    bash -lc 'set -euo pipefail;
+    cd "${WORKSPACE}";
+    bash infrastructure/scripts/09-install-argocd.sh;
+    kubectl apply -f deploy/argocd/applications/;
+    echo "";
+    echo "=== ACM on ALB ingresses (Terraform + ignoreDifferences in Git — no manual patch needed) ===";
+    bash infrastructure/scripts/11-patch-ingress-acm-from-terraform.sh --wait;
+    echo "";
+    echo "=== Argo Applications (expect several rows) ===";
+    kubectl get application -n argocd || true;
+    echo "";
+    echo "=== Ingress (ADDRESS fills after ALB provisions) ===";
+    kubectl get ingress -A || true;
+    echo "";
+    echo "HTTPS: use hostname from ingress rules once DNS points at the same ALB (wildcard *.minhhuy.me CNAME to ALB works with your ACM cert).";
+    echo "If no rows above: wrong kubectl context, or apply failed. If Apps exist but no Ingress: kubectl describe application -n argocd image-captioning";
+    echo "Argo CD installed and Applications applied."'

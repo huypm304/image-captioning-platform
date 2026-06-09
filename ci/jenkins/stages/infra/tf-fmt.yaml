@@ -1,0 +1,4 @@
+name: TF Fmt
+agent: laptop
+steps:
+  - "bash -lc 'terraform fmt -check -recursive -no-color && echo \"terraform fmt: OK\"'"
